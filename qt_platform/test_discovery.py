@@ -185,7 +185,7 @@ def discover_for_arm(project_root: Path, testcase_roots: list[str]) -> list[Test
 def discover_grouped_for_arm(
     project_root: Path, testcase_roots: list[str]
 ) -> list[tuple[str, list[TestModuleRow]]]:
-    """按 arms.json 中每个 testcase_root 一组；组内已按 test_ 后数字排序；跨组去重路径。"""
+    """按测试域分组；组内按 test_ 后数字排序，并跨组去重路径。"""
     seen: set[str] = set()
     groups: list[tuple[str, list[TestModuleRow]]] = []
     for tr in testcase_roots:

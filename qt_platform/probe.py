@@ -1,101 +1,43 @@
 # -*- coding: utf-8 -*-
-"""子进程探测连接：python -m qt_platform.probe <arm_id> ..."""
+"""在独立进程中探测 TuyaRobot 连接。"""
 from __future__ import annotations
 
 import argparse
-import os
-import sys
-from pathlib import Path
 
-_ROOT = Path(__file__).resolve().parents[1]
-
-
-def _close_device(dev: object) -> None:
-    try:
-        if hasattr(dev, "mc") and dev.mc is not None:
-            close = getattr(dev.mc, "close", None)
-            if callable(close):
-                close()
-        elif hasattr(dev, "close") and callable(dev.close):
-            dev.close()
-    except Exception as e:  # noqa: BLE001
-        print(f"WARN close: {e}", file=sys.stderr)
-
-
-def run_probe(arm_id: str, ip: str | None, serial: str | None, left: str | None, right: str | None) -> int:
-    os.chdir(_ROOT)
-    if str(_ROOT) not in sys.path:
-        sys.path.insert(0, str(_ROOT))
-
-    from arm_registry import build_device, get_connection_mode
-
-    mode = get_connection_mode(arm_id)
-    dev = None
-    try:
-        if mode == "ip":
-            if not (ip or "").strip():
-                print("缺少 IP", file=sys.stderr)
-                return 2
-            dev = build_device(arm_id, ip.strip())
-            mc = getattr(dev, "mc", None)
-            if mc is not None and hasattr(mc, "get_system_version"):
-                v = mc.get_system_version()
-                print(f"OK get_system_version={v!r}")
-            else:
-                print("OK 已连接（无 get_system_version）")
-        elif mode == "serial":
-            if not (serial or "").strip():
-                print("缺少串口", file=sys.stderr)
-                return 2
-            dev = build_device(arm_id, serial.strip())
-            mc = getattr(dev, "mc", None)
-            if mc is not None and hasattr(mc, "get_system_version"):
-                v = mc.get_system_version()
-                print(f"OK get_system_version={v!r}")
-            else:
-                print("OK 已连接")
-        elif mode == "dual_serial":
-            if not (left or "").strip() or not (right or "").strip():
-                print("缺少左右臂串口", file=sys.stderr)
-                return 2
-            os.environ["MERCURY_LEFT_PORT"] = left.strip()
-            os.environ["MERCURY_RIGHT_PORT"] = right.strip()
-            dev = build_device(arm_id, "")
-            ml = getattr(dev, "ml", None)
-            if ml is not None and hasattr(ml, "get_system_version"):
-                v = ml.get_system_version()
-                print(f"OK 左臂 get_system_version={v!r}")
-            else:
-                print("OK 双臂对象已创建")
-        else:
-            print(f"未知 connection_mode: {mode}", file=sys.stderr)
-            return 2
-        return 0
-    except Exception as e:  # noqa: BLE001
-        print(f"FAIL {e!r}", file=sys.stderr)
-        return 1
-    finally:
-        if dev is not None:
-            _close_device(dev)
+from settings import TuyaConnectionConfig, TuyaRobotBase
 
 
 def main() -> None:
-    p = argparse.ArgumentParser()
-    p.add_argument("arm_id")
-    p.add_argument("--ip", default=None)
-    p.add_argument("--serial", default=None)
-    p.add_argument("--left", default=None)
-    p.add_argument("--right", default=None)
-    args = p.parse_args()
-    sys.exit(
-        run_probe(
-            args.arm_id,
-            args.ip,
-            args.serial,
-            args.left,
-            args.right,
-        )
+    defaults = TuyaConnectionConfig.from_env()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ip", default=defaults.upper_ip)
+    parser.add_argument("--port", type=int, default=defaults.upper_port)
+    parser.add_argument("--head-port", default=defaults.head_port)
+    parser.add_argument("--head-baud", type=int, default=defaults.head_baud)
+    parser.add_argument("--chassis-port", default=defaults.chassis_port)
+    parser.add_argument("--chassis-baud", type=int, default=defaults.chassis_baud)
+    parser.add_argument("--connect-head", action="store_true")
+    args = parser.parse_args()
+
+    config = TuyaConnectionConfig(
+        upper_ip=args.ip,
+        upper_port=args.port,
+        head_port=args.head_port,
+        head_baud=args.head_baud,
+        chassis_port=args.chassis_port,
+        chassis_baud=args.chassis_baud,
+        head_auto_connect=args.connect_head,
+        chassis_auto_connect=True,
+        apply_limits_on_init=False,
+        debug=True,
+        plain_return=True,
     )
+    device = TuyaRobotBase(config)
+    try:
+        version = device.robot.get_system_version()
+        print(f"OK robot_type={device.robot.get_robot_type()!r} version={version!r}")
+    finally:
+        device.close()
 
 
 if __name__ == "__main__":

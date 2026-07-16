@@ -20,7 +20,7 @@ def _env_truthy(name: str) -> bool:
 
 
 def _wait_seconds() -> float:
-    raw = os.environ.get("ELEPHANT_OPERATOR_WAIT_SEC", "").strip()
+    raw = os.environ.get("TUYA_OPERATOR_WAIT_SEC", "").strip()
     if not raw:
         return _DEFAULT_WAIT_SEC
     try:
@@ -30,7 +30,7 @@ def _wait_seconds() -> float:
 
 
 def _gui_enabled() -> bool:
-    return not _env_truthy("ELEPHANT_OPERATOR_NO_GUI")
+    return not _env_truthy("TUYA_OPERATOR_NO_GUI")
 
 
 def _has_tty() -> bool:
@@ -80,13 +80,12 @@ def prompt_continue(
                 pytest.skip("用户点击取消")
             return
 
+    if allow_skip:
+        pytest.skip("未检测到 TTY，且人工确认弹窗不可用或已禁用")
+
     sec = _wait_seconds()
     with allure.step(f"非 TTY：等待 {sec:g} 秒后继续"):
-        logger.info(
-            "未检测到 TTY 且 GUI 不可用/已禁用，将等待 %.1f 秒后自动继续。"
-            "可设 ELEPHANT_OPERATOR_NO_GUI=0 尝试弹窗，或 ELEPHANT_OPERATOR_WAIT_SEC 调整等待。",
-            sec,
-        )
+        logger.info("人工确认不可用；allow_skip=False，等待 %.1f 秒后继续。", sec)
         if sec > 0:
             time.sleep(sec)
 

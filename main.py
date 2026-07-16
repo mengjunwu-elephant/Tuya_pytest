@@ -1,38 +1,37 @@
+# -*- coding: utf-8 -*-
+"""TuyaRobot 自动化测试命令行入口。"""
+from __future__ import annotations
+
+import argparse
+
 import pytest
-from settings import CASES_DIR,REPORT_DIR
-import os
 
-if __name__ == '__main__':
-    product_name = input("请输入数字选择需要测试的产品:\n"
-                         "1: mycobot_450\n"
-                         "2: mycobot450_pro_gripper\n"
-                         )
+from settings import CASES_DIR, REPORT_DIR
 
-    # 获取对应用例路径
-    case_path = CASES_DIR.get(product_name)
-    if not case_path:
-        print("输入错误，请输入1-2之间的数字。")
-        exit(1)
 
-    # # 生成报告文件名（带时间戳）
-    # now = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    # report_file = f"report_{product_name}_{now}.html"
-    #
-    # # 调用 pytest 执行测试并生成 html 报告
-    # pytest.main([
-    #     case_path,
-    #     f"--html=reports/{report_file}",
-    #     "--self-contained-html"  # 报告文件独立，不依赖外部资源
-    # ])
+MODULES = {
+    "all": [CASES_DIR["1"], CASES_DIR["2"], CASES_DIR["3"]],
+    "robot": [CASES_DIR["1"]],
+    "upper_body": [CASES_DIR["2"]],
+    "chassis": [CASES_DIR["3"]],
+}
 
-# 执行 pytest 并生成 allure 原始结果
-    pytest.main(["-s",
-        case_path,
-        f"--alluredir={REPORT_DIR}"
-    ])
 
-    print("\n✅ 测试执行完成，生成报告中...")
+def main() -> int:
+    parser = argparse.ArgumentParser(description="TuyaRobot 自动化测试")
+    parser.add_argument("--module", choices=MODULES, default="all")
+    parser.add_argument("--marker", default=None, help="pytest marker 表达式")
+    parser.add_argument("--allure", action="store_true", help="生成 Allure 原始结果")
+    args, pytest_args = parser.parse_known_args()
 
-    # 生成并打开 Allure 报告
-    os.system(f"allure generate {REPORT_DIR} -o allure-report --clean")
-    os.system("allure open allure-report")
+    command = ["-s", *MODULES[args.module]]
+    if args.marker:
+        command.extend(["-m", args.marker])
+    if args.allure:
+        command.append(f"--alluredir={REPORT_DIR}")
+    command.extend(pytest_args)
+    return pytest.main(command)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

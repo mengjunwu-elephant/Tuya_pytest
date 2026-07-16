@@ -104,7 +104,7 @@ def test_example(device: Any, case: dict[str, Any]) -> None:
 ```python
 @pytest.fixture(scope="module", autouse=True)
 def teardown_pwm_modes(device):
-    yield
+    yield·1
     with allure.step("测试模块结束：关闭激光PWM与自定义PWM模式"):
         try:
             device.mc.set_pwm_laser_mode(0)

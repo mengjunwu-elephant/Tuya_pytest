@@ -12,66 +12,62 @@ def get_test_data_from_excel(
     sheet_name: str,
     required_columns: Optional[Sequence[str]] = None,
 ) -> list[dict[str, Any]]:
-    """
-    读取 Excel 首行为字段名，自第 2 行起每行一条用例字典。
+    """读取首行为字段名的 Excel Sheet，并返回用例字典列表。
 
-    :param file: xlsx 路径
-    :param sheet_name: 工作表名（与代码中 get_test_data_from_excel(..., sheet_name) 一致）
-    :param required_columns: 若给出，校验首行必须包含这些列名
-    :return: 字典列表；全空行会被跳过
-    :raises FileNotFoundError: 文件不存在
-    :raises KeyError: 工作表不存在
-    :raises ValueError: 首行列名非法或缺少 required_columns
+    空行会被跳过；尾部仅因格式产生的空列会被安全忽略。
+
+    :param file: xlsx 文件路径。
+    :param sheet_name: Sheet 名称，应与对应 SDK 接口名一致。
+    :param required_columns: 可选的必填列名集合。
+    :raises FileNotFoundError: 文件不存在。
+    :raises KeyError: Sheet 不存在。
+    :raises ValueError: 表头为空、包含空列名或缺少必填列。
     """
     if not os.path.isfile(file):
         raise FileNotFoundError(file)
 
-    wb = load_workbook(file, read_only=True)
+    workbook = load_workbook(file, read_only=True)
     try:
-        if sheet_name not in wb.sheetnames:
+        if sheet_name not in workbook.sheetnames:
             raise KeyError(
-                f"工作表 {sheet_name!r} 不存在，当前工作簿包含: {wb.sheetnames!r}"
+                f"工作表 {sheet_name!r} 不存在，当前工作簿包含：{workbook.sheetnames!r}"
             )
-        sh = wb[sheet_name]
-        row = sh.max_row
-        column = sh.max_column
-        data: list[dict[str, Any]] = []
-        keys: list[Any] = []
-        for i in range(1, column + 1):
-            keys.append(sh.cell(1, i).value)
-        # Excel 常因格式/选中区域把 max_column 拉大，尾部若干列首格无表头；数据若也为空可安全截断
+
+        sheet = workbook[sheet_name]
+        keys = [sheet.cell(1, index).value for index in range(1, sheet.max_column + 1)]
         while keys and (
             keys[-1] is None
             or (isinstance(keys[-1], str) and keys[-1].strip() == "")
         ):
             keys.pop()
-        column = len(keys)
-        if column == 0:
-            raise ValueError("Excel 首行无任何列名")
-        if any(k is None or (isinstance(k, str) and k.strip() == "") for k in keys):
+
+        if not keys:
+            raise ValueError("Excel 首行没有任何列名")
+        if any(
+            key is None or (isinstance(key, str) and key.strip() == "")
+            for key in keys
+        ):
             raise ValueError("Excel 首行存在空列名，请删除空列或填写表头")
 
-        str_keys = [str(k).strip() for k in keys]
-
+        column_names = [str(key).strip() for key in keys]
         if required_columns is not None:
-            missing = set(required_columns) - set(str_keys)
+            missing = set(required_columns) - set(column_names)
             if missing:
-                raise ValueError(f"Excel 缺少必填列: {sorted(missing)}")
+                raise ValueError(f"Excel 缺少必填列：{sorted(missing)}")
 
-        for i in range(2, row + 1):
-            temp: dict[str, Any] = {}
-            for j in range(1, column + 1):
-                temp[str_keys[j - 1]] = sh.cell(i, j).value
+        cases: list[dict[str, Any]] = []
+        for row_index in range(2, sheet.max_row + 1):
+            case = {
+                column_name: sheet.cell(row_index, column_index).value
+                for column_index, column_name in enumerate(column_names, 1)
+            }
             if all(
-                v is None or (isinstance(v, str) and v.strip() == "")
-                for v in temp.values()
+                value is None
+                or (isinstance(value, str) and value.strip() == "")
+                for value in case.values()
             ):
                 continue
-            data.append(temp)
-        return data
+            cases.append(case)
+        return cases
     finally:
-        wb.close()
-
-
-if __name__ == "__main__":
-    get_test_data_from_excel(r"../test_data/mercury.xlsx", "Sheet1")
+        workbook.close()

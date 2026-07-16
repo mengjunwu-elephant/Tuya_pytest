@@ -1,530 +1,145 @@
 # -*- coding: utf-8 -*-
-"""多产品线共享配置（main 分支融合各机械臂分支的 settings）。"""
+"""TuyaRobot 自动化测试配置与设备入口。"""
 from __future__ import annotations
 
 import os
 import time
-from typing import Optional, Union
+from dataclasses import dataclass
+from typing import Optional
 
-from pymycobot import *
+from pytuyarobot import TuyaRobot
+from pytuyarobot.command_result import CommandResult
 
-# 项目路径
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+REPORT_DIR = "allure-results"
 
-# ---------------------------------------------------------------------------
-# MyCobot Pro 450（网络）
-# ---------------------------------------------------------------------------
-DEFAULT_MYCOBOT450_IP = "192.168.0.232"
+ROBOT_TEST_DATA_FILE = os.path.join(BASE_DIR, "test_data", "robot.xlsx")
+UPPER_BODY_TEST_DATA_FILE = os.path.join(BASE_DIR, "test_data", "upper_body.xlsx")
+CHASSIS_TEST_DATA_FILE = os.path.join(BASE_DIR, "test_data", "chassis.xlsx")
 
-
-def resolve_mycobot450_ip(explicit: Optional[str] = None) -> str:
-    """解析机械臂 IP：显式参数 > 环境变量 MYCOBOT450_IP / Mycobot450_IP > 默认常量。"""
-    if explicit is not None and str(explicit).strip() != "":
-        return str(explicit).strip()
-    return (
-        os.environ.get("MYCOBOT450_IP", "").strip()
-        or os.environ.get("Mycobot450_IP", "").strip()
-        or DEFAULT_MYCOBOT450_IP
-    )
-
-
-def _client_debug_from_env() -> bool:
-    v = os.environ.get("MYCOBOT450_DEBUG", "").strip().lower()
-    if v in ("0", "false", "no"):
-        return False
-    if v in ("1", "true", "yes"):
-        return True
-    return True
-
-
-def _mycobot450_move_wait_timeout_sec() -> float:
-    raw = os.environ.get("MYCOBOT450_MOVE_TIMEOUT_SEC", "").strip()
-    if not raw:
-        return 120.0
-    try:
-        return max(1.0, float(raw))
-    except ValueError:
-        return 120.0
-
-
-# ---------------------------------------------------------------------------
-# UltraArm P1（串口）
-# ---------------------------------------------------------------------------
-DEFAULT_ULTRAARM_PORT = "com8"
-DEFAULT_ULTRAARM_BAUD = 1000000
-
-
-def resolve_ultraarm_port(explicit: Optional[str] = None) -> str:
-    if explicit is not None and str(explicit).strip() != "":
-        return str(explicit).strip()
-    return os.environ.get("ULTRAARM_PORT", "").strip() or DEFAULT_ULTRAARM_PORT
-
-
-def resolve_ultraarm_baud(explicit: Optional[Union[int, str]] = None) -> int:
-    if explicit is not None and str(explicit).strip() != "":
-        try:
-            return int(explicit)
-        except (TypeError, ValueError):
-            return DEFAULT_ULTRAARM_BAUD
-    raw = os.environ.get("ULTRAARM_BAUD", "").strip()
-    if raw:
-        try:
-            return max(1, int(raw))
-        except ValueError:
-            pass
-    return DEFAULT_ULTRAARM_BAUD
-
-
-def _ultraarm_debug_from_env() -> int:
-    v = os.environ.get("ULTRAARM_DEBUG", "").strip().lower()
-    if v in ("0", "false", "no"):
-        return 0
-    if v in ("1", "true", "yes"):
-        return 1
-    return 1
-
-
-def _ultraarm_move_wait_timeout_sec() -> float:
-    raw = os.environ.get("ULTRAARM_MOVE_TIMEOUT_SEC", "").strip()
-    if not raw:
-        return 120.0
-    try:
-        return max(1.0, float(raw))
-    except ValueError:
-        return 120.0
-
-
-# ---------------------------------------------------------------------------
-# 兼容 main.py 数字菜单：按仓库内实际存在的用例根路径（旧脚本仍可用）
-# ---------------------------------------------------------------------------
 CASES_DIR = {
-    "1": "testcases/mycobot_450",
-    "2": "testcases/mycobot450_pro_gripper",
-    "3": "testcases/mycobot_280",
-    "4": "testcases/mercury",
-    "5": "testcases/mercury_pro_gripper",
-    "6": "testcases/mercury_my_hand",
-    "7": "testcases/mercury_e1",
-    "8": "testcases/mercury_e1_pro_gripper",
-    "9": "testcases/UltraArm_P1",
-    "10": "testcases/UltraArm_P1_Attachments",
+    "1": "testcases/robot",
+    "2": "testcases/upper_body",
+    "3": "testcases/chassis",
 }
 
 LOG_CONFIG = {
-    "name": "elephant",
-    "filename": os.path.join(BASE_DIR, r"log/log.log"),
+    "name": "tuya_robot",
+    "filename": os.path.join(BASE_DIR, "log", "tuya_robot.log"),
     "debug": True,
     "mode": "a",
     "encoding": "utf-8",
 }
 
-REPORT_DIR = "allure-results"
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None or not raw.strip():
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
-# ---------------------------------------------------------------------------
-# MyCobot Pro 450
-# ---------------------------------------------------------------------------
-class Mycobot450Base:
-    speed = 50
-    coords_init_angles = [0, 30, -100, -20, 0.0, 0.0]
-    zero_angles = [0, 0, 0, 0, 0, 0]
-    min_angles = [-162, -125, -154, -162, -162, -165]
-    max_angles = [162, 125, 154, 162, 162, 165]
-
-    collision_threshold = [100, 100, 100, 100, 100, 100]
-    torque_comp = [0, 0, 0, 10, 30, 30]
-    fusion_parameters = [150, 1000, 100, 4000]
-
-    TEST_DATA_FILE = os.path.join(BASE_DIR, r"test_data/mycobot_450.xlsx")
-    PRO_GRIPPER_TEST_DATA_FILE = os.path.join(BASE_DIR, r"test_data/pro_gripper.xlsx")
-
-    move_wait_timeout_sec: float = _mycobot450_move_wait_timeout_sec()
-
-    def __init__(self, ip: Optional[str] = None) -> None:
-        resolved = resolve_mycobot450_ip(ip)
-        self.mc = Pro450Client(ip=resolved, debug=_client_debug_from_env())
-
-    def default_settings(self):
-        self.mc.set_fresh_mode(0)
-        self.mc.set_debug_state(0)
-        self.mc.set_movement_type(1)
-
-    def default_speed(self):
-        self.mc.set_max_speed(0, 150)
-        self.mc.set_max_speed(1, 200)
-        self.mc.set_max_acc(0, 200)
-        self.mc.set_max_acc(1, 400)
-
-    def default_angle(self):
-        for i, j in enumerate(self.min_angles):
-            self.mc.set_joint_min_angle(i + 1, j)
-            time.sleep(0.1)
-        for i, j in enumerate(self.max_angles):
-            self.mc.set_joint_max_angle(i + 1, j)
-            time.sleep(0.1)
-
-    def default_base_io_output(self):
-        for i in range(12):
-            self.mc.set_base_io_output(i + 1, 0)
-            time.sleep(0.2)
-
-    def default_digital_io_output(self):
-        for i in range(2):
-            self.mc.set_digital_output(i + 1, 0)
-            time.sleep(0.2)
-
-    def default_tool_reference(self):
-        self.mc.set_tool_reference([0, 0, 0, 0, 0, 0])
-        self.mc.set_end_type(0)
-
-    def default_world_reference(self):
-        self.mc.set_world_reference([0, 0, 0, 0, 0, 0])
-        self.mc.set_reference_frame(0)
-
-    def default_collision_threshold(self):
-        for i, j in enumerate(self.collision_threshold):
-            self.mc.set_collision_threshold(i + 1, j)
-
-    def default_torque_comp(self):
-        for i, j in enumerate(self.torque_comp):
-            self.mc.set_torque_comp(i + 1, 0, j)
-
-    def default_filter_len(self):
-        self.mc.set_filter_len(5, 60)
-
-    def default_fusion_parameters(self):
-        for i, j in enumerate(self.fusion_parameters):
-            self.mc.set_fusion_parameters(i + 1, j)
-
-    def go_zero(self):
-        self.mc.send_angles(self.zero_angles, self.speed)
-        time.sleep(2)
-
-    def wait(self) -> None:
-        deadline = time.monotonic() + float(self.move_wait_timeout_sec)
-        time.sleep(0.3)
-        while self.mc.is_moving():
-            if time.monotonic() > deadline:
-                raise TimeoutError(
-                    f"wait() 超时：{self.move_wait_timeout_sec}s 内 is_moving 仍为真"
-                )
-            time.sleep(0.1)
-        time.sleep(1)
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
 
 
-# ---------------------------------------------------------------------------
-# Mercury X1 七轴双臂（mercury_x1 分支）
-# ---------------------------------------------------------------------------
-class MercuryBase:
-    speed = 50
-    init_angles = [0, 0, 0, 0, 0, 90, 0]
-    coords_init_angles = [0, 20, 0, -90, 0, 90, 0]
+@dataclass(frozen=True)
+class TuyaConnectionConfig:
+    upper_ip: str = "192.168.1.232"
+    upper_port: int = 6500
+    head_port: str = "COM4"
+    head_baud: int = 115200
+    chassis_port: str = "COM16"
+    chassis_baud: int = 2_000_000
+    head_auto_connect: bool = False
+    chassis_auto_connect: bool = True
+    apply_limits_on_init: bool = False
+    debug: bool = True
+    plain_return: bool = True
 
-    angles_min = [-165, -50, -165, -165, -165, -75, -165]
-    angles_max = [165, 120, 165, 1, 165, 255, 165]
-    ex_max_limit = [0, 245, 160]
-    ex_min_limit = [-55, -70, -160]
-
-    TEST_DATA_FILE = os.path.join(BASE_DIR, r"test_data/mercury.xlsx")
-    PRO_GRIPPER_TEST_DATA_FILE = os.path.join(
-        BASE_DIR, r"test_data/mercury_pro_gripper.xlsx"
-    )
-    MY_HAND_TEST_DATA_FILE = os.path.join(BASE_DIR, r"test_data/mercury_my_hand.xlsx")
-
-    def __init__(self, left_port="/dev/left_arm", right_port="/dev/right_arm"):
-        self.ml = Mercury(left_port, save_serial_log=1)
-        self.mr = Mercury(right_port, save_serial_log=1, debug=1)
-
-    def close(self):
-        self.ml.close()
-        self.mr.close()
-
-    def go_zero(self):
-        self.ml.send_angles(self.init_angles, self.speed)
-        self.mr.send_angles(self.init_angles, self.speed)
-        self.mr.send_angle(11, 0, self.speed)
-        self.mr.send_angle(12, 0, self.speed)
-        self.mr.send_angle(13, 0, self.speed)
-
-    def init_coords(self):
-        self.ml.send_angles(self.coords_init_angles, self.speed)
-        self.mr.send_angles(self.coords_init_angles, self.speed)
-
-    def reset(self):
-        self.mr.power_off()
-        self.ml.power_off()
-        self.ml.power_on()
-        self.mr.power_on()
-
-    def wait(self, timeout=30.0):
-        """等待机械臂停止运动（带超时）。"""
-        time.sleep(0.3)
-        from common1 import logger
-
-        start_time = time.time()
-        last_log_time = start_time
-        logger.info(
-            f"当前左臂运动状态为{self.ml.is_moving()}，当前右臂运动状态为{self.mr.is_moving()}"
+    @classmethod
+    def from_env(cls) -> "TuyaConnectionConfig":
+        return cls(
+            upper_ip=os.environ.get("TUYA_ROBOT_IP", cls.upper_ip).strip()
+            or cls.upper_ip,
+            upper_port=_env_int("TUYA_ROBOT_PORT", cls.upper_port),
+            head_port=os.environ.get("TUYA_HEAD_PORT", cls.head_port).strip()
+            or cls.head_port,
+            head_baud=_env_int("TUYA_HEAD_BAUD", cls.head_baud),
+            chassis_port=os.environ.get(
+                "TUYA_CHASSIS_PORT", cls.chassis_port
+            ).strip()
+            or cls.chassis_port,
+            chassis_baud=_env_int("TUYA_CHASSIS_BAUD", cls.chassis_baud),
+            head_auto_connect=_env_bool(
+                "TUYA_HEAD_AUTO_CONNECT", cls.head_auto_connect
+            ),
+            chassis_auto_connect=_env_bool(
+                "TUYA_CHASSIS_AUTO_CONNECT", cls.chassis_auto_connect
+            ),
+            apply_limits_on_init=_env_bool(
+                "TUYA_APPLY_LIMITS_ON_INIT", cls.apply_limits_on_init
+            ),
+            debug=_env_bool("TUYA_DEBUG", cls.debug),
+            plain_return=_env_bool("TUYA_PLAIN_RETURN", cls.plain_return),
         )
-        while self.ml.is_moving() or self.mr.is_moving():
-            if time.time() - start_time > timeout:
-                logger.error(f"机械臂运动超时（{timeout}秒）")
-                raise TimeoutError("机械臂运动超时")
-            current_time = time.time()
-            if current_time - last_log_time >= 1.0:
-                elapsed = current_time - start_time
-                left_status = "运动中" if self.ml.is_moving() else "已停止"
-                right_status = "运动中" if self.mr.is_moving() else "已停止"
-                logger.info(
-                    f"等待机械臂停止... 已等待{elapsed:.1f}秒 | 左臂:{left_status} | 右臂:{right_status}"
-                )
-                last_log_time = current_time
-
-        time.sleep(0.3)
-        logger.info("机械臂运动完成")
-
-    def power_on_only(self):
-        self.mr.power_off()
-        self.ml.power_off()
-        self.ml.power_on_only()
-        self.mr.power_on_only()
-
-    def power_off(self):
-        self.mr.power_off()
-        self.ml.power_off()
-
-    def set_default_torque_comp(self):
-        torque_comp = [0, 0, 0, 0, 10, 30, 30]
-        for i, c in enumerate(torque_comp):
-            self.ml.set_torque_comp(i + 1, c)
-            self.mr.set_torque_comp(i + 1, c)
-
-    def set_default_pos_over_shoot(self):
-        self.ml.set_pos_over_shoot(50)
-        self.mr.set_pos_over_shoot(50)
-
-    def set_default_joint_min_angle(self):
-        for i in range(6):
-            self.ml.set_joint_min_angle(i + 1, self.angles_min[i])
-            self.mr.set_joint_min_angle(i + 1, self.angles_min[i])
-
-    def set_default_joint_max_angle(self):
-        for i in range(6):
-            self.ml.set_joint_max_angle(i + 1, self.angles_max[i])
-            self.mr.set_joint_max_angle(i + 1, self.angles_max[i])
-
-    def set_default_p(self):
-        for i in range(6):
-            self.ml.set_hand_gripper_p(i + 1, 100)
-
-    def set_default_d(self):
-        for i in range(6):
-            self.ml.set_hand_gripper_d(i + 1, 120)
-
-    def set_default_i(self):
-        for i in range(6):
-            self.ml.set_hand_gripper_i(i + 1, 0)
-
-    def set_default_cw(self):
-        for i in range(6):
-            self.ml.set_hand_gripper_clockwise(i + 1, 5)
-
-    def set_default_cww(self):
-        for i in range(6):
-            self.ml.set_hand_gripper_counterclockwise(i + 1, 5)
-
-    def set_default_mini_pressure(self):
-        for i in range(6):
-            self.ml.set_hand_gripper_min_pressure(i + 1, 0)
-
-    def set_default_torque(self):
-        for i in range(6):
-            self.ml.set_hand_gripper_torque(i + 1, 100)
-
-    def set_default_speed(self):
-        for i in range(6):
-            self.ml.set_hand_gripper_speed(i + 1, 100)
 
 
-# ---------------------------------------------------------------------------
-# MyCobot 280
-# ---------------------------------------------------------------------------
-class Mycobot280Base:
+class TuyaRobotBase:
+    """整机测试设备，集中暴露 TuyaRobot 的各个子系统。"""
+
     speed = 50
-    coords_init_angles = [0, 20, -90, -20, 0, 0]
-    init_angles = [0, 0, 0, 0, 0, 0]
+    head_speed = 40
+    ROBOT_TEST_DATA_FILE = ROBOT_TEST_DATA_FILE
+    UPPER_BODY_TEST_DATA_FILE = UPPER_BODY_TEST_DATA_FILE
+    CHASSIS_TEST_DATA_FILE = CHASSIS_TEST_DATA_FILE
 
-    angles_min = [-168, -135, -150, -145, -155, -180]
-    angles_max = [168, 135, 150, 145, 160, 180]
+    def __init__(self, config: Optional[TuyaConnectionConfig] = None) -> None:
+        self.config = config or TuyaConnectionConfig.from_env()
+        self.robot = TuyaRobot(
+            self.config.upper_ip,
+            self.config.upper_port,
+            head_port=self.config.head_port,
+            head_baud=self.config.head_baud,
+            chassis_port=self.config.chassis_port,
+            chassis_baud=self.config.chassis_baud,
+            head_auto_connect=self.config.head_auto_connect,
+            chassis_auto_connect=self.config.chassis_auto_connect,
+            apply_limits_on_init=self.config.apply_limits_on_init,
+            debug=self.config.debug,
+            plain_return=self.config.plain_return,
+        )
+        self.upper_body = self.robot.upper_body
+        self.left_arm = self.robot.left_arm
+        self.right_arm = self.robot.right_arm
+        self.head = self.robot.head
+        self.chassis = self.robot.chassis
 
-    hts_gripper_torque = 200
-    hts_gripper_protect_current = 300
+    @staticmethod
+    def _result_data(result):
+        if isinstance(result, CommandResult):
+            if not result.ok:
+                raise RuntimeError(result.message or "TuyaRobot command failed")
+            return result.data
+        return result
 
-    TEST_DATA_FILE = os.path.join(BASE_DIR, r"test_data/mycobot_280.xlsx")
-
-    def __init__(self, port="com5", baudrate=115200):
-        self.mc = MyCobot280(port, baudrate=baudrate, debug=1)
-
-    def default_settings(self):
-        self.mc.power_on()
-        self.mc.set_fresh_mode(0)
-        self.mc.go_home()
-        self.wait()
-        self.mc.clear_error_information()
-
-    def wait(self):
-        time.sleep(0.5)
-        while True:
-            if self.mc.is_moving() == 1:
-                time.sleep(0.1)
-            else:
-                break
-        time.sleep(1)
-
-    def default_angles(self):
-        for i, j in enumerate(self.angles_min):
-            self.mc.set_joint_min(i + 1, j)
-            time.sleep(0.1)
-        for i, j in enumerate(self.angles_max):
-            self.mc.set_joint_max(i + 1, j)
-            time.sleep(0.1)
-
-
-# ---------------------------------------------------------------------------
-# UltraArm P1
-# ---------------------------------------------------------------------------
-class UltraArmP1Base:
-    speed = 50
-    zero_angles = [0, 0, 90, 0]
-    coords_init_angles = [0, 30, 130, 0]  #[260.76, 0.0, -17.73, 0.0]
-    min_angles = [-165, -18, 89, -179]
-    max_angles = [165, 85, 200, 179]
-    min_coords = [-350, -362.43, -186.265, -180.0]
-    max_coords = [360.43, 362.43, 93.44, 180.0]
-
-    base_io_pin_count = 10
-
-    TEST_DATA_FILE = os.path.join(BASE_DIR, r"test_data/UltraArm_P1.xlsx")
-    # collision_unlock 用例；也可合并到 UltraArm_P1.xlsx 同名 sheet 后改从此处读主表
-    ATTACHMENTS_TEST_DATA_FILE = os.path.join(
-        BASE_DIR, r"test_data/UltraArm_P1_Attachments.xlsx"
-    )
-
-    move_wait_timeout_sec: float = _ultraarm_move_wait_timeout_sec()
-
-    def __init__(
-        self,
-        port: Optional[str] = None,
-        baud: Optional[Union[int, str]] = None,
-        debug: Optional[int] = None,
-    ) -> None:
-        resolved_port = resolve_ultraarm_port(port)
-        resolved_baud = resolve_ultraarm_baud(baud)
-        dbg = _ultraarm_debug_from_env() if debug is None else int(debug)
-        self.mc = UltraArmP1(resolved_port, resolved_baud, debug=dbg)
-
-    def default_base_io_output(self) -> None:
-        for i in range(1, 6):
-            self.mc.set_base_io_output(i, 0, 0)
-            time.sleep(0.2)
-        for i in range(6, 11):
-            self.mc.set_base_io_output(i, 0, 1)
-            time.sleep(0.2)
-
-    def go_zero(self) -> None:
-        self.mc.set_angles(self.zero_angles, self.speed)
-        self.wait()
-
-    def wait(self) -> None:
-        deadline = time.monotonic() + float(self.move_wait_timeout_sec)
-        time.sleep(0.3)
-        while self.mc.get_run_status():
-            if time.monotonic() > deadline:
-                raise TimeoutError(
-                    f"wait() 超时：{self.move_wait_timeout_sec}s 内 get_run_status 仍为真"
-                )
-            time.sleep(0.1)
-        time.sleep(0.3)
-
-
-# ---------------------------------------------------------------------------
-# Mercury E1（七轴单臂，与 Pro450 接口风格接近）
-# ---------------------------------------------------------------------------
-class MercuryE1Base:
-    speed = 50
-    coords_init_angles = [0, -10, 0, -90, 0, -90, 0]
-    zero_angles = [0, 0, 0, 0, 0, 0, 0]
-    min_angles = [-155, -55, -160, -135, -160, -100, -135]
-    max_angles = [155, 105, 160, 18, 160, 117, 135]
-
-    collision_threshold = [100, 100, 100, 100, 100, 100, 100]
-    torque_comp = [0, 0, 0, 10, 30, 30, 30]
-    fusion_parameters = [150, 1000, 100, 4000]
-
-    TEST_DATA_FILE = os.path.join(BASE_DIR, r"test_data/mercury_e1.xlsx")
-    PRO_GRIPPER_TEST_DATA_FILE = os.path.join(BASE_DIR, r"test_data/pro_gripper.xlsx")
-
-    def __init__(self, port="com3"):
-        self.mc = MercuryE1(port=port, debug=True)
-
-    def default_settings(self):
-        self.mc.set_fresh_mode(0)
-        self.mc.set_debug_state(0)
-        self.mc.set_movement_type(1)
-
-    def default_speed(self):
-        self.mc.set_max_speed(0, 150)
-        self.mc.set_max_speed(1, 200)
-        self.mc.set_max_acc(0, 200)
-        self.mc.set_max_acc(1, 400)
-
-    def default_angle(self):
-        for i, j in enumerate(self.min_angles):
-            self.mc.set_joint_min_angle(i + 1, j)
-            time.sleep(0.1)
-        for i, j in enumerate(self.max_angles):
-            self.mc.set_joint_max_angle(i + 1, j)
+    def wait_upper(self, timeout: float = 120.0) -> None:
+        deadline = time.monotonic() + timeout
+        while bool(self._result_data(self.upper_body.get_upper_is_moving())):
+            if time.monotonic() >= deadline:
+                raise TimeoutError(f"上半身在 {timeout:g} 秒内未停止")
             time.sleep(0.1)
 
-    def default_base_io_output(self):
-        for i in range(12):
-            self.mc.set_base_io_output(i + 1, 0)
-            time.sleep(0.2)
+    def close(self) -> None:
+        self.robot.close()
 
-    def default_digital_io_output(self):
-        for i in range(2):
-            self.mc.set_digital_output(i + 1, 0)
-            time.sleep(0.2)
 
-    def default_tool_reference(self):
-        self.mc.set_tool_reference([0, 0, 0, 0, 0, 0])
-        self.mc.set_end_type(0)
-
-    def default_world_reference(self):
-        self.mc.set_world_reference([0, 0, 0, 0, 0, 0])
-        self.mc.set_reference_frame(0)
-
-    def default_collision_threshold(self):
-        for i, j in enumerate(self.collision_threshold):
-            self.mc.set_collision_threshold(i + 1, j)
-
-    def default_torque_comp(self):
-        for i, j in enumerate(self.torque_comp):
-            self.mc.set_torque_comp(i + 1, 0, j)
-
-    def default_filter_len(self):
-        self.mc.set_filter_len(5, 60)
-
-    def default_fusion_parameters(self):
-        for i, j in enumerate(self.fusion_parameters):
-            self.mc.set_fusion_parameters(i + 1, j)
-
-    def go_zero(self):
-        self.mc.send_angles(self.zero_angles, self.speed)
-        time.sleep(2)
-
-    def wait(self):
-        time.sleep(0.3)
-        while self.mc.is_moving():
-            time.sleep(0.1)
-        time.sleep(1)
+# 兼容前一阶段已经使用的类名，新增代码统一使用 TuyaRobotBase。
+Tuya_stm32Base = TuyaRobotBase

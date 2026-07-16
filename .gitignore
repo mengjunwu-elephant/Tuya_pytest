@@ -10,6 +10,7 @@ allure-results
 demo/
 mycobot_320_123
 **/log.log*
+log/*.log*
 **/python_debug.log*
 **/python_debug_*.log
 **/test_report/
