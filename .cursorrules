@@ -8,14 +8,14 @@ alwaysApply: true
 ## 一、项目边界
 
 - 本仓库使用 `pytest`、`allure-pytest` 和 `openpyxl` 对 TuyaRobot 真机接口进行 Excel 驱动测试。
-- 测试范围固定为 `testcases/robot`、`testcases/upper_body`、`testcases/chassis`。
+- 测试范围固定为 `testcases/robot`、`testcases/upper_body`、`testcases/chassis`、`testcases/head`。
 - 不引入其他仓库的 `arms.json`、`arm_registry.py` 或按 arm id 选臂流程。
 - 对用户说明、测试日志、注释和仓库文档优先使用简体中文。
 
 ## 二、目录职责
 
 - `testcases/`：单 API 或单一紧密场景的测试文件；只消费 pytest fixture，不自行创建或关闭设备连接。
-- `test_data/`：三类测试 Excel；sheet 名应与接口主题一致，首行为字段名。
+- `test_data/`：各模块测试 Excel；sheet 名应与接口主题一致，首行为字段名。
 - `common1/`：日志、Excel 读取等通用能力。
 - `settings.py`：`TuyaConnectionConfig`、环境变量、Excel 路径、运动零位/软件限位常量、`TuyaRobotBase`、公共回零/默认恢复动作和有超时的等待逻辑。
 - 根 `conftest.py`：pytest CLI、配置合并、session 设备生命周期、子系统 fixture、marker 与安全门控。
@@ -44,7 +44,8 @@ alwaysApply: true
 
 - `device` 为 session scope，由根 `conftest.py` 创建一次 `TuyaRobotBase`，会话结束统一关闭。
 - 测试按需使用 `robot`、`upper_body`、`left_arm`、`right_arm`、`head`、`chassis` fixture。
-- `head` 或 `chassis` 未启用时由 fixture 跳过；测试文件不得绕过 `enabled` 检查自行连接。
+- `testcases/head/conftest.py` 可独立创建 `Head` TCP session，头部用例不得连接整机、上半身或底盘；其他模块不得绕过 fixture 自行连接。
+- 头部 TCP 参数为 `--head-ip` / `--head-port` 或 `TUYA_HEAD_IP` / `TUYA_HEAD_PORT`，默认 `192.168.0.231:6501`，需显式 `--connect-head`。
 - CLI 显式值覆盖环境变量，环境变量覆盖 `TuyaConnectionConfig` 默认值。
 - 新增连接字段时必须同步更新 dataclass、`from_env()`、pytest CLI 和 `_connection_config()`。
 
@@ -85,4 +86,5 @@ alwaysApply: true
 - 编写或重构 Excel 用例时使用 `tuya-pytest-case-authoring`。
 - 修改连接配置、pytest 会话、fixture 或安全门控时使用 `tuya-pytest-registry-session`。
 - 编写或审查运动、Jog、增量、软限位和避碰用例时使用 `tuya-motion-test-authoring`。
+- 编写头部 PI4 TCP、四关节、人工确认或恢复用例时使用 `tuya-head-test-authoring`。
 - 本文件只定义全仓库不可违背的约束；具体步骤以对应技能为准。

@@ -27,9 +27,10 @@ from settings import TuyaConnectionConfig
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULES = {
-    "全部": "testcases/robot testcases/upper_body testcases/chassis",
+    "全部": "testcases/robot testcases/upper_body testcases/chassis testcases/head",
     "整机": "testcases/robot",
-    "上半身与头部": "testcases/upper_body",
+    "上半身": "testcases/upper_body",
+    "头部": "testcases/head",
     "底盘": "testcases/chassis",
 }
 
@@ -48,8 +49,8 @@ class MainWindow(QMainWindow):
         defaults = TuyaConnectionConfig.from_env()
         self.ip = QLineEdit(defaults.upper_ip)
         self.upper_port = QLineEdit(str(defaults.upper_port))
-        self.head_port = QLineEdit(defaults.head_port)
-        self.head_baud = QLineEdit(str(defaults.head_baud))
+        self.head_ip = QLineEdit(defaults.head_ip)
+        self.head_port = QLineEdit(str(defaults.head_port))
         self.chassis_port = QLineEdit(defaults.chassis_port)
         self.chassis_baud = QLineEdit(str(defaults.chassis_baud))
         self.module = QComboBox()
@@ -64,8 +65,8 @@ class MainWindow(QMainWindow):
         form = QFormLayout()
         form.addRow("上半身 IP", self.ip)
         form.addRow("上半身端口", self.upper_port)
-        form.addRow("头部串口", self.head_port)
-        form.addRow("头部波特率", self.head_baud)
+        form.addRow("头部 IP", self.head_ip)
+        form.addRow("头部 TCP 端口", self.head_port)
         form.addRow("底盘串口", self.chassis_port)
         form.addRow("底盘波特率", self.chassis_baud)
         form.addRow("测试域", self.module)
@@ -114,8 +115,8 @@ class MainWindow(QMainWindow):
                 self.upper_port.text().strip(),
                 "--head-port",
                 self.head_port.text().strip(),
-                "--head-baud",
-                self.head_baud.text().strip(),
+                "--head-ip",
+                self.head_ip.text().strip(),
                 "--chassis-port",
                 self.chassis_port.text().strip(),
                 "--chassis-baud",

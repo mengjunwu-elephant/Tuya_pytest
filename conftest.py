@@ -17,12 +17,12 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     group = parser.getgroup("tuya-robot")
     group.addoption("--tuya-ip", default=None, help="上半身控制器 IP")
     group.addoption("--tuya-port", type=int, default=None, help="上半身 TCP 端口")
-    group.addoption("--head-port", default=None, help="头部串口")
-    group.addoption("--head-baud", type=int, default=None, help="头部波特率")
+    group.addoption("--head-ip", default=None, help="头部 TCP IP")
+    group.addoption("--head-port", type=int, default=None, help="头部 TCP 端口")
     group.addoption("--chassis-port", default=None, help="底盘串口")
     group.addoption("--chassis-baud", type=int, default=None, help="底盘波特率")
     group.addoption(
-        "--connect-head", action="store_true", default=False, help="连接头部串口"
+        "--connect-head", action="store_true", default=False, help="连接头部 TCP 控制器"
     )
     group.addoption(
         "--no-connect-chassis",
@@ -71,8 +71,8 @@ def _connection_config(pytestconfig: pytest.Config) -> TuyaConnectionConfig:
     return TuyaConnectionConfig(
         upper_ip=pytestconfig.getoption("--tuya-ip") or env.upper_ip,
         upper_port=pytestconfig.getoption("--tuya-port") or env.upper_port,
+        head_ip=pytestconfig.getoption("--head-ip") or env.head_ip,
         head_port=pytestconfig.getoption("--head-port") or env.head_port,
-        head_baud=pytestconfig.getoption("--head-baud") or env.head_baud,
         chassis_port=pytestconfig.getoption("--chassis-port") or env.chassis_port,
         chassis_baud=pytestconfig.getoption("--chassis-baud") or env.chassis_baud,
         head_auto_connect=pytestconfig.getoption("--connect-head")
@@ -119,7 +119,7 @@ def right_arm(device: TuyaRobotBase):
 @pytest.fixture(scope="session")
 def head(device: TuyaRobotBase):
     if not device.head.enabled:
-        pytest.skip("头部串口未连接；请使用 --connect-head")
+        pytest.skip("头部 TCP 未连接；请使用 --connect-head")
     return device.head
 
 

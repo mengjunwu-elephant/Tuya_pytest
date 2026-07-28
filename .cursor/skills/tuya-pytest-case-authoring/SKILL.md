@@ -2,7 +2,7 @@
 name: tuya-pytest-case-authoring
 description: >-
   Author and refactor Excel-driven TuyaRobot pytest cases in testcases/robot,
-  testcases/upper_body, and testcases/chassis. Use for test skeletons, Excel
+  testcases/upper_body, testcases/chassis, and testcases/head. Use for test skeletons, Excel
   sheets, parametrization, Allure steps and attachments, API parameter logs,
   normal/exception cases, state restoration, hardware markers, or fixture
   selection in this repository.
@@ -17,8 +17,9 @@ description: >-
 | `testcases/robot` | `TuyaRobotBase.ROBOT_TEST_DATA_FILE` | `robot` | - |
 | `testcases/upper_body` | `TuyaRobotBase.UPPER_BODY_TEST_DATA_FILE` | `upper_body` | `left_arm`、`right_arm`、`head` |
 | `testcases/chassis` | `TuyaRobotBase.CHASSIS_TEST_DATA_FILE` | `chassis` | - |
+| `testcases/head` | `TuyaRobotBase.HEAD_TEST_DATA_FILE` | `head` | - |
 
-根 `conftest.py` 创建 session 级 `TuyaRobotBase`，各 fixture 只返回其子系统。复用现有 fixture，不在测试文件中自行连接或关闭设备。
+根 `conftest.py` 创建 session 级 `TuyaRobotBase`，各 fixture 只返回其子系统。`testcases/head/conftest.py` 是例外：它为头部专属套件创建独立 TCP `Head` 连接；详细安全规则以 `tuya-head-test-authoring` 为准。
 
 ## 读取 Excel
 
