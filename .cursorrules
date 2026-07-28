@@ -1,49 +1,88 @@
 ---
-description: 
+description: TuyaRobot pytest 仓库全局规则
 alwaysApply: true
 ---
 
-# elephant-pytest Cursor 规则（优化版）
+# TuyaRobot pytest 仓库规则
 
-## 一、项目目标
-- 本仓库是 **pymycobot 实机自动化测试工程**：`pytest` + `allure-pytest` + `openpyxl`（Excel 驱动）。
-- 与选臂/连接相关改动，统一走 `arm_registry.py` + `arms.json`，避免在测试文件里散落解析逻辑。
+## 一、项目边界
 
-## 二、沟通与输出
-- 对用户解释、代码注释、文档说明优先使用 **简体中文**。
-- 修改后优先给出“改了什么 + 为什么改”两句式说明；涉及锁、内存、寄存器或硬件时明确风险边界。
+- 本仓库使用 `pytest`、`allure-pytest` 和 `openpyxl` 对 TuyaRobot 真机接口进行 Excel 驱动测试。
+- 测试范围固定为 `testcases/robot`、`testcases/upper_body`、`testcases/chassis`。
+- 不引入其他仓库的 `arms.json`、`arm_registry.py` 或按 arm id 选臂流程。
+- 对用户说明、测试日志、注释和仓库文档优先使用简体中文。
 
-## 三、目录职责（必须遵守）
-- `testcases/*`：按产品线组织测试，倾向单 API/单场景单文件 `test_*.py`。
-- `common1/`：通用能力（`logger`、`test_data_handler`、`assert_utils`）。
-- `settings.py`：各产品线 `*Base`、测试数据文件、超时与等待策略。
-- `arm_registry.py` + `arms.json`：臂注册、连接模式、构建设备、用例根路径。
-- 根 `conftest.py`：仅保留全局 pytest 会话逻辑（CLI 选项、marker 自动化），不放产品线 `device` 细节。
-- `testcases/<产品>/conftest.py`：该产品线的 `device` fixture 与资源生命周期。
+## 二、目录职责
 
-## 四、测试开发基线
-- 数据读取：优先 `get_test_data_from_excel(Base.TEST_DATA_FILE, sheet, required_columns=...)`。
-- 测试结构：`@pytest.mark.parametrize` + `allure.feature/story` + `allure.step`。
-- 断言策略：浮点与容差优先 `assert_utils.assert_almost_equal`；关键输入输出建议 `allure.attach`。
-- 新增公共函数或 fixture 建议补全类型提示（Type Hints）。
-- 严禁臆造 pymycobot API；以官方文档和本机已安装源码为准。
+- `testcases/`：单 API 或单一紧密场景的测试文件；只消费 pytest fixture，不自行创建或关闭设备连接。
+- `test_data/`：三类测试 Excel；sheet 名应与接口主题一致，首行为字段名。
+- `common1/`：日志、Excel 读取等通用能力。
+- `settings.py`：`TuyaConnectionConfig`、环境变量、Excel 路径、运动零位/软件限位常量、`TuyaRobotBase`、公共回零/默认恢复动作和有超时的等待逻辑。
+- 根 `conftest.py`：pytest CLI、配置合并、session 设备生命周期、子系统 fixture、marker 与安全门控。
+- `pytest.ini`：测试根目录、导入模式和 marker 注册。
+
+## 三、测试骨架强约束
+
+- 统一使用 `get_test_data_from_excel` 和 Excel 参数化；`@pytest.mark.parametrize` 必须保持单行，ids 固定为 `lambda c: c["title"]`。
+- 测试接口的调用、等待、断言和恢复流程必须直接写在对应测试函数内，不得使用 `_run_*`、Executor、Adapter 等方式封装主流程。
+- 只有接口存在需要多次复用的独特测试动作（例如固定执行 1°、0.1° 的小步运动）时才考虑提取公共方法；创建任何测试公共方法前必须先得到用户明确确认。
+- Excel 用例 `ID` 必须使用从 1 开始的连续纯数字，不得添加接口缩写前缀。
+- `title` 必须直接描述实际验证功能和关键参数，例如“设置J1运动到10度”“设置J1运动到-167度，验证角度超限”“设置左右臂J1依次运动到软件下限-166度”；软件限位不得写成机械硬限位。
+- normal、exception、manual 等用例分类完全以 Excel 的 `test_type` 为准；禁止在测试代码中根据角度、限位或其他参数再次推断、覆盖或兜底重分类。
+- 保留已有测试函数名、fixture、marker、接口调用顺序、断言语义、skip 条件和状态恢复逻辑。
+- 每条用例必须包含开始/通过/完成日志，并在开始日志后记录 `test_api` 与真实 API 入参。
+- API 调用、前置检查、断言和恢复动作使用语义明确的 `allure.step`。
+- Allure 的 `feature`、`story`、`step` 和附件名称统一使用简体中文描述实际功能；API 标识符可以嵌入中文描述，但不得直接以 `UpperBody` 或函数名作为展示标题。
+- 仅在读取 `expect_data` 且存在可比较实际值时定义 `expected`，并在最终值断言步骤附加期望值和实际值。
+- `expect_data` 统一表示接口业务数据；左臂、右臂和整臂接口统一通过 `device.result_data(result)` 兼容直接返回与 `CommandResult`，再与期望值比较。测试文件不得重复编写返回包装判断，也不得因 `plain_return` 模式不同重复增加期望列；仅在专门验证失败状态契约时增加 `status_code`、`message`、`blocked_by` 等字段。
+- 普通设置接口成功业务返回值为 `1`；运动发送接口在插补模式 `0` 下返回 `0`，在刷新模式 `1` 下返回 `1`。查询接口按真实查询数据断言。
+- 类型和结构断言先于业务值断言；运动角度和坐标回读统一使用 `assert_almost_equal`。
+- setter 必须先读取原值，并以 `try/finally` 保证恢复；双臂状态按左右臂原值分别恢复。
+- 异常用例使用 SDK 的具体异常类型，通过 `pytest.raises(...) as exc` 捕获，并在块结束后记录 `exc.value`。
+
+## 四、连接与 fixture
+
+- `device` 为 session scope，由根 `conftest.py` 创建一次 `TuyaRobotBase`，会话结束统一关闭。
+- 测试按需使用 `robot`、`upper_body`、`left_arm`、`right_arm`、`head`、`chassis` fixture。
+- `head` 或 `chassis` 未启用时由 fixture 跳过；测试文件不得绕过 `enabled` 检查自行连接。
+- CLI 显式值覆盖环境变量，环境变量覆盖 `TuyaConnectionConfig` 默认值。
+- 新增连接字段时必须同步更新 dataclass、`from_env()`、pytest CLI 和 `_connection_config()`。
 
 ## 五、实机安全红线
-- 禁止无上限等待运动结束；统一使用各 `*Base.wait(...)` 的超时机制。
-- 禁止在同一台实机上随意并发多进程共连（如盲目使用 `pytest-xdist`）。
-- 禁止伪造硬件能力、固件行为、通信结果。
 
-## 六、连接与选臂优先级（Pro 450）
-- IP 解析：`--elephant-ip` > 环境变量 (`MYCOBOT450_IP` / `Mycobot450_IP`) > `arms.json.default_ip` > `settings.DEFAULT_MYCOBOT450_IP`。
-- 臂选择：`--elephant-arm` > `ELEPHANT_ARM` > `arms.json.default_arm`。
+- `testcases/` 下用例由 collection 自动标记为 `hardware`；普通验证不得主动开启真机门控。
+- 真机执行必须由用户明确授权，并显式启用所需的 `--run-hardware`、`--run-motion`、`--run-manual`、`--run-danger`、`--run-firmware`。
+- 多个安全 marker 同时存在时必须分别启用；`reset` 不是执行门控。
+- 禁止无超时等待、盲目并发连接同一设备、伪造硬件能力或吞掉清理异常。
+- `testcases/upper_body/conftest.py` 使用 function 级自动 fixture，每条上半身测试执行前检查双臂状态，未全部上电时执行上电并在 30 秒内确认；不得新建设备连接。测试文件不得重复编写上电状态检查。
+- 除上述上半身公共前置上电外，接口专属校准、初始化和恢复逻辑留在对应测试文件，不加入 session fixture。
+- 运动方案未得到用户明确确认前，不得创建测试文件或修改 Excel。
+- URDF、DH 和单轴限位不能单独证明双臂无自碰；未确认的避让姿态、完整角度和绝对坐标必须留空并显式跳过，禁止猜值或补零。
+- Jog 使用 `0` 负向、`1` 正向；`upper_jog_angle` 分别测试左臂、右臂和双臂，每条运动用例前后均调用 `device.go_zero()`；Jog 到软件限位自行停止并完成角度回读后直接回零，不额外调用 `upper_stop()`。软限位 Jog 启用 `motion + manual + danger`。刷新模式不支持 Jog，只验证一条返回 `-1`，结束后恢复插补模式并回零。
+- `upper_jog_angle_increment` 覆盖左臂、右臂和双臂 J1～J7；正常用例从零位单关节步进 30°，J4 使用 `-30°`，回读后回零。超限增量按 `|负限位| + |正限位| + 1°` 生成正负值并通过公开接口正常下发，启用 `motion + manual + danger`，不为 SDK 当前缺少幅度校验增加用例内规避逻辑。
+- `upper_jog_coord` 单臂正常用例覆盖六轴正负向，双臂正常用例只覆盖 Z 轴正负向；单臂只移动目标臂到坐标初始点位，持续 Jog 到状态码 `32`“坐标无解”并读取停止坐标，最后回零，不断言坐标软件限位。
+- `upper_jog_coord_increment` 单臂正常用例覆盖六轴步进 30 mm/30°，双臂正常用例只覆盖 Z 轴步进 30 mm；超限值按完整坐标行程再加 1 生成正负值并正常下发，启用 `motion + manual + danger`。单臂只移动目标臂到初始点位，所有运动用例结束后回零。
+- 已确认的零位角度、关节/坐标软件限位等跨用例运动常量统一定义为 `TuyaRobotBase` 类属性，测试文件只引用，不重复硬编码。
+- 坐标运动初始关节姿态统一使用 `TuyaRobotBase.COORD_MOTION_INITIAL_ANGLES`；双臂坐标运动调用 `device.move_to_coord_initial_pose()`，单臂坐标 Jog/步进调用 `device.move_to_coord_initial_pose(arm_side)` 只移动目标臂，并等待到位。
+- 坐标运动初始坐标使用 `TuyaRobotBase.COORD_MOTION_INITIAL_COORDS`，初始姿态方法负责回读校验。`send_upper_coord` 仅保留左右单臂用例，分别覆盖刷新模式 `1`、插补模式 `0` 下 X/Y/Z `±10 mm`、RX/RY/RZ `±10°`；每条用例先进入初始姿态，再设置并回读模式，最后发送坐标，并在 `finally` 中调用 `device.go_zero()`。模块结束固定恢复双臂插补模式 `0`。
+- `TuyaRobotBase.speed` 为公共恢复/回零速度，当前固定为 `20`；整臂回零等公共恢复动作统一引用该值。
+- 双臂整臂回零统一调用 `TuyaRobotBase.go_zero()`；设置参数后的公共默认恢复动作也封装为 `TuyaRobotBase` 方法，测试文件只编排恢复时机，不重复实现恢复细节。
+- `TuyaRobotBase.angle_tolerance` 和 `TuyaRobotBase.coord_tolerance` 分别为角度、坐标回读容差，当前均为 `0.1`；Excel 的 `expect_data` 只用于断言被测接口返回值。
+- `send_upper_angle` 显式覆盖刷新模式 `1` 和插补模式 `0`：左右单臂分别覆盖 J1～J7，双臂通过 `robot.send_upper_angle` 覆盖 J1～J7 正负 10°，单臂软件限位覆盖两种模式但双臂不执行软件限位。每条关节用例在 `finally` 中调用 `device.go_zero()`，模块结束固定恢复双臂插补模式 `0`。
+- 合法速度至少覆盖 1、10、20、100，非法速度覆盖 0、101；速度 100 不得用于未确认的大范围边界运动。
+- 文档契约和 SDK 实际行为不一致时分别记录，并使用当前 SDK 的具体异常类型断言。
 
-## 七、推荐验证动作
-- 改动 `settings.py`、任意 `conftest.py`、`arm_registry.py`、`arms.json` 后，先执行：
-  - `pytest testcases --collect-only`
-- 改动某产品线用例后，至少执行：
-  - `pytest path/to/test_file.py --collect-only`
+## 六、验证基线
 
-## 八、与 Skill 的分工
-- 具体“如何写 Excel 用例”请调用 `elephant-pytest-case-authoring`。
-- 具体“如何改选臂/会话解析”请调用 `elephant-pytest-registry-session`。
-- 规则文件只保留跨模块强约束，不重复 Skill 的细节步骤。
+- 修改测试后运行 `python -m compileall -q testcases`。
+- 修改测试、Excel、fixture 或连接配置后运行 `pytest testcases --collect-only -q`。
+- 当前基线为 119 个测试文件、142 个测试函数、824 条参数化测试；有意修改 Excel 或收集范围时同步更新规则与技能中的基线。
+- 修改连接或会话参数后运行 `pytest --help`，确认 TuyaRobot CLI 仍可见。
+- 不在常规验证中运行真实硬件测试。
+
+## 七、技能分工
+
+- 编写或重构 Excel 用例时使用 `tuya-pytest-case-authoring`。
+- 修改连接配置、pytest 会话、fixture 或安全门控时使用 `tuya-pytest-registry-session`。
+- 编写或审查运动、Jog、增量、软限位和避碰用例时使用 `tuya-motion-test-authoring`。
+- 本文件只定义全仓库不可违背的约束；具体步骤以对应技能为准。
