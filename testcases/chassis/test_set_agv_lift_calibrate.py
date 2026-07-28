@@ -9,13 +9,14 @@ from settings import TuyaRobotBase
 
 cases = get_test_data_from_excel(TuyaRobotBase.CHASSIS_TEST_DATA_FILE, 'set_agv_lift_calibrate')
 
-@allure.feature('Chassis')
-@allure.story('set_agv_lift_calibrate')
+@allure.feature('底盘')
+@allure.story('底盘接口验证：set_agv_lift_calibrate')
 @pytest.mark.chassis
+@pytest.mark.motion
 @pytest.mark.manual
 @pytest.mark.danger
 @pytest.mark.parametrize("case", cases, ids=lambda c: c["title"])
-def test_set_agv_lift_calibrate(chassis, case):
+def test_set_agv_lift_calibrate(device, chassis, case):
     title = case['title']
     logger.info(f'》》》》》用例【{title}】开始测试《《《《《')
     logger.debug(f'test_api:{case["api"]}')
@@ -25,10 +26,11 @@ def test_set_agv_lift_calibrate(chassis, case):
         assert power_state == 0, f'底盘未处于正常上电状态: {power_state!r}'
     prompt_continue(case['manual_check'], title='底盘升降标定确认')
     with allure.step('调用 set_agv_lift_calibrate 接口'):
-        chassis.set_agv_lift_calibrate()
-    with allure.step('调用 is_agv_lift_init_calibrate 接口'):
-        actual = chassis.is_agv_lift_init_calibrate()
-        logger.debug(f"接口 is_agv_lift_init_calibrate 返回：{actual}")
+        response = chassis.set_agv_lift_calibrate()
+        assert TuyaRobotBase.result_data(response) == 1, f'升降标定接口业务返回错误: {response!r}'
+    with allure.step('等待升降零位标定完成'):
+        actual = device.wait_chassis_lift_calibrated(timeout=30)
+        logger.debug(f"升降零位标定状态：{actual}")
     with allure.step("断言接口返回结果"):
         assert isinstance(actual, bool)
     with allure.step("断言接口返回结果"):

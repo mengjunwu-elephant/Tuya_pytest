@@ -11,8 +11,8 @@ cases = get_test_data_from_excel(TuyaRobotBase.CHASSIS_TEST_DATA_FILE, 'set_agv_
 normal_cases = [case for case in cases if case['test_type'] == 'normal']
 exception_cases = [case for case in cases if case['test_type'] == 'exception']
 
-@allure.feature('Chassis')
-@allure.story('set_agv_debug_state')
+@allure.feature('底盘')
+@allure.story('底盘接口验证：set_agv_debug_state')
 @pytest.mark.chassis
 @pytest.mark.reset
 @pytest.mark.parametrize("case", normal_cases, ids=lambda c: c["title"])
@@ -48,8 +48,8 @@ def test_set_agv_debug_state(chassis, case):
     logger.info(f'✅ 用例【{title}】测试通过')
     logger.info(f'》》》》》用例【{title}】测试完成《《《《《')
 
-@allure.feature('Chassis')
-@allure.story('set_agv_debug_state')
+@allure.feature('底盘')
+@allure.story('底盘接口验证：set_agv_debug_state')
 @pytest.mark.chassis
 @pytest.mark.parametrize("case", exception_cases, ids=lambda c: c["title"])
 def test_set_agv_debug_state_exception(chassis, case):

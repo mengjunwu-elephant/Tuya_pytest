@@ -3,15 +3,17 @@ import allure
 import pytest
 
 from common1 import logger
+from common1.operator_input import prompt_continue
 from common1.test_data_handler import get_test_data_from_excel
 from settings import TuyaRobotBase
 
 cases = get_test_data_from_excel(TuyaRobotBase.CHASSIS_TEST_DATA_FILE, 'set_agv_liftmm')
 
-@allure.feature('Chassis')
-@allure.story('set_agv_liftmm')
+@allure.feature('底盘')
+@allure.story('底盘接口验证：set_agv_liftmm')
 @pytest.mark.chassis
 @pytest.mark.motion
+@pytest.mark.manual
 @pytest.mark.danger
 @pytest.mark.parametrize("case", cases, ids=lambda c: c["title"])
 def test_set_agv_liftmm(chassis, case):
@@ -24,6 +26,7 @@ def test_set_agv_liftmm(chassis, case):
     with allure.step('检查底盘上电状态'):
         power_state = chassis.is_agv_powered_on()
         assert power_state == 0, f'底盘未处于正常上电状态: {power_state!r}'
+    prompt_continue('确认升降机构周边无人、无障碍物，且急停可用。', title='底盘升降运动确认')
     with allure.step('调用 get_agv_liftmm 接口'):
         original = chassis.get_agv_liftmm()
         logger.debug(f"接口 get_agv_liftmm 返回：{original}")

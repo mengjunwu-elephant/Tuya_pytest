@@ -8,8 +8,8 @@ from settings import TuyaRobotBase
 
 cases = get_test_data_from_excel(TuyaRobotBase.CHASSIS_TEST_DATA_FILE, 'set_agv_motor_acc')
 
-@allure.feature('Chassis')
-@allure.story('set_agv_motor_acc')
+@allure.feature('底盘')
+@allure.story('底盘接口验证：set_agv_motor_acc')
 @pytest.mark.chassis
 @pytest.mark.reset
 @pytest.mark.danger

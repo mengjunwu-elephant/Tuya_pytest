@@ -8,8 +8,8 @@ from settings import TuyaRobotBase
 
 cases = get_test_data_from_excel(TuyaRobotBase.CHASSIS_TEST_DATA_FILE, 'set_agv_handle_state')
 
-@allure.feature('Chassis')
-@allure.story('set_agv_handle_state')
+@allure.feature('底盘')
+@allure.story('底盘接口验证：set_agv_handle_state')
 @pytest.mark.chassis
 @pytest.mark.reset
 @pytest.mark.parametrize("case", cases, ids=lambda c: c["title"])

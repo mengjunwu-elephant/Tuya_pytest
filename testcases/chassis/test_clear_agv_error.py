@@ -8,8 +8,8 @@ from settings import TuyaRobotBase
 
 cases = get_test_data_from_excel(TuyaRobotBase.CHASSIS_TEST_DATA_FILE, 'clear_agv_error')
 
-@allure.feature('Chassis')
-@allure.story('clear_agv_error')
+@allure.feature('底盘')
+@allure.story('底盘接口验证：clear_agv_error')
 @pytest.mark.chassis
 @pytest.mark.parametrize("case", cases, ids=lambda c: c["title"])
 def test_clear_agv_error(chassis, case):
@@ -21,6 +21,6 @@ def test_clear_agv_error(chassis, case):
         response = chassis.clear_agv_error(case['device_id'])
         logger.debug(f"接口 clear_agv_error 返回：{response}")
     with allure.step("断言接口返回结果"):
-        assert response is not None, '底盘清错接口未返回 ACK'
+        assert TuyaRobotBase.result_data(response) == 1, f'底盘清错接口业务返回错误: {response!r}'
     logger.info(f'✅ 用例【{title}】测试通过')
     logger.info(f'》》》》》用例【{title}】测试完成《《《《《')

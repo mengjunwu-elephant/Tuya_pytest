@@ -8,8 +8,8 @@ from settings import TuyaRobotBase
 
 cases = get_test_data_from_excel(TuyaRobotBase.CHASSIS_TEST_DATA_FILE, 'get_agv_wheel_brake')
 
-@allure.feature('Chassis')
-@allure.story('get_agv_wheel_brake')
+@allure.feature('底盘')
+@allure.story('底盘接口验证：get_agv_wheel_brake')
 @pytest.mark.chassis
 @pytest.mark.parametrize("case", cases, ids=lambda c: c["title"])
 def test_get_agv_wheel_brake(chassis, case):
@@ -20,8 +20,8 @@ def test_get_agv_wheel_brake(chassis, case):
         response_1 = chassis.get_agv_wheel_brake()
         logger.debug(f"接口 get_agv_wheel_brake 返回：{response_1}")
     with allure.step("断言接口返回结果"):
-        assert isinstance(response_1, int) and (not isinstance(response_1, bool))
+        assert isinstance(response_1, bool), f'返回类型错误，期望 bool，实际为 {type(response_1).__name__}: {response_1!r}'
     with allure.step("断言接口返回结果"):
-        assert response_1 in (0, 1), f'期望 0/1，实际为 {response_1!r}'
+        assert response_1 in (False, True), f'期望 True/False，实际为 {response_1!r}'
     logger.info(f'✅ 用例【{title}】测试通过')
     logger.info(f'》》》》》用例【{title}】测试完成《《《《《')

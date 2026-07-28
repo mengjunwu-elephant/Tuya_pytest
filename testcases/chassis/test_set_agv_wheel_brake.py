@@ -8,8 +8,8 @@ from settings import TuyaRobotBase
 
 cases = get_test_data_from_excel(TuyaRobotBase.CHASSIS_TEST_DATA_FILE, 'set_agv_wheel_brake')
 
-@allure.feature('Chassis')
-@allure.story('set_agv_wheel_brake')
+@allure.feature('底盘')
+@allure.story('底盘接口验证：set_agv_wheel_brake')
 @pytest.mark.chassis
 @pytest.mark.danger
 @pytest.mark.parametrize("case", cases, ids=lambda c: c["title"])
@@ -26,9 +26,9 @@ def test_set_agv_wheel_brake(chassis, case):
         original = chassis.get_agv_wheel_brake()
         logger.debug(f"接口 get_agv_wheel_brake 返回：{original}")
     with allure.step("断言接口返回结果"):
-        assert isinstance(original, int) and (not isinstance(original, bool))
+        assert isinstance(original, bool), f'返回类型错误，期望 bool，实际为 {type(original).__name__}: {original!r}'
     with allure.step("断言接口返回结果"):
-        assert original in (0, 1), f'期望 0/1，实际为 {original!r}'
+        assert original in (False, True), f'期望 True/False，实际为 {original!r}'
     try:
         with allure.step('调用 set_agv_wheel_brake 接口'):
             chassis.set_agv_wheel_brake(case['state'])
@@ -36,13 +36,13 @@ def test_set_agv_wheel_brake(chassis, case):
             actual = chassis.get_agv_wheel_brake()
             logger.debug(f"接口 get_agv_wheel_brake 返回：{actual}")
         with allure.step("断言接口返回结果"):
-            assert isinstance(actual, int) and not isinstance(actual, bool)
+            assert isinstance(actual, bool), f'返回类型错误，期望 bool，实际为 {type(actual).__name__}: {actual!r}'
         with allure.step("断言接口返回结果"):
-            assert actual in (0, 1)
+            assert actual in (False, True)
         with allure.step("断言接口返回结果"):
             allure.attach(str(expected), name="期望值", attachment_type=allure.attachment_type.TEXT)
             allure.attach(str(actual), name="实际值", attachment_type=allure.attachment_type.TEXT)
-            assert actual == expected
+            assert actual is bool(expected)
     finally:
         with allure.step('调用 set_agv_wheel_brake 接口'):
             chassis.set_agv_wheel_brake(original)

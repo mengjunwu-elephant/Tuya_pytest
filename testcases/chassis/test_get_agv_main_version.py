@@ -9,7 +9,7 @@ from settings import TuyaRobotBase
 cases = get_test_data_from_excel(TuyaRobotBase.CHASSIS_TEST_DATA_FILE, 'get_agv_main_version')
 
 @allure.feature('TuyaRobot 底盘')
-@allure.story('获取底盘主版本')
+@allure.story('底盘接口验证：获取底盘主版本')
 @pytest.mark.chassis
 @pytest.mark.smoke
 @pytest.mark.parametrize("case", [case for case in cases if case['test_type'] == 'normal'], ids=lambda c: c["title"])

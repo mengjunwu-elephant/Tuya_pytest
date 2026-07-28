@@ -8,8 +8,8 @@ from settings import TuyaRobotBase
 
 cases = get_test_data_from_excel(TuyaRobotBase.CHASSIS_TEST_DATA_FILE, 'is_agv_lift_init_calibrate')
 
-@allure.feature('Chassis')
-@allure.story('is_agv_lift_init_calibrate')
+@allure.feature('底盘')
+@allure.story('底盘接口验证：is_agv_lift_init_calibrate')
 @pytest.mark.chassis
 @pytest.mark.parametrize("case", cases, ids=lambda c: c["title"])
 def test_is_agv_lift_init_calibrate(chassis, case):

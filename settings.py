@@ -59,7 +59,7 @@ class TuyaConnectionConfig:
     chassis_port: str = "COM16"
     chassis_baud: int = 2_000_000
     head_auto_connect: bool = False
-    chassis_auto_connect: bool = False
+    chassis_auto_connect: bool = True
     apply_limits_on_init: bool = False
     debug: bool = True
     plain_return: bool = True
@@ -234,6 +234,31 @@ class TuyaRobotBase:
                 return
             if time.monotonic() >= deadline:
                 raise TimeoutError(f"上半身在 {timeout:g} 秒内未停止")
+            time.sleep(0.2)
+
+    def wait_chassis_power(self, expected_on: bool, timeout: float = 10.0):
+        """等待底盘达到目标上电状态，并在超时前持续确认通信结果。"""
+        deadline = time.monotonic() + timeout
+        while True:
+            status = self.result_data(self.chassis.is_agv_powered_on())
+            if (status == 0) is expected_on:
+                return status
+            if time.monotonic() >= deadline:
+                raise TimeoutError(
+                    f"底盘在 {timeout:g} 秒内未达到上电状态 expected_on={expected_on}，"
+                    f"实际状态: {status!r}"
+                )
+            time.sleep(0.2)
+
+    def wait_chassis_lift_calibrated(self, timeout: float = 30.0) -> bool:
+        """等待底盘升降零位标定完成。"""
+        deadline = time.monotonic() + timeout
+        while True:
+            calibrated = self.result_data(self.chassis.is_agv_lift_init_calibrate())
+            if calibrated is True:
+                return calibrated
+            if time.monotonic() >= deadline:
+                raise TimeoutError(f"底盘升降在 {timeout:g} 秒内未完成零位标定")
             time.sleep(0.2)
 
     def close(self) -> None:
