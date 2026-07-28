@@ -1,42 +1,76 @@
 # -*- coding: utf-8 -*-
 import allure
 import pytest
+
+from common1 import logger
 from common1.test_data_handler import get_test_data_from_excel
 from settings import TuyaRobotBase
-from common1 import logger
-cases = get_test_data_from_excel(TuyaRobotBase.UPPER_BODY_TEST_DATA_FILE, 'set_upper_end_type')
 
-@allure.feature('UpperBody')
-@allure.story('set_upper_end_type')
+cases = get_test_data_from_excel(
+    TuyaRobotBase.UPPER_BODY_TEST_DATA_FILE,
+    "set_upper_end_type",
+    required_columns=('title', 'api', 'target', 'end_type', 'expect_data', 'test_type'),
+)
+normal_cases = [case for case in cases if case["test_type"] == "normal"]
+exception_cases = [case for case in cases if case["test_type"] == "exception"]
+
+
+@allure.feature("上半身参数设置")
+@allure.story("设置单臂和双臂末端类型")
 @pytest.mark.upper_body
-@pytest.mark.reset
 @pytest.mark.danger
-@pytest.mark.parametrize('case', cases, ids=lambda case: case['title'])
-def test_set_upper_end_type(upper_body, case):
-    title = case['title']
-    logger.info(f'》》》》》用例【{title}】开始测试《《《《《')
-    with allure.step('检查上半身上电状态'):
-        power_state = upper_body.is_upper_powered_on()
-        assert isinstance(power_state, (list, tuple)), f'上电状态类型错误: {power_state!r}'
-        assert len(power_state) == 2, f'上电状态长度错误: {power_state!r}'
-        if list(power_state) != [1, 1]:
-            pytest.skip(f'上半身未完成双臂上电: {power_state!r}')
-    with allure.step('调用 get_upper_end_type 接口'):
-        original = upper_body.get_upper_end_type()
-        logger.debug('接口 get_upper_end_type 返回：%r', original)
-    assert isinstance(original, (list, tuple)), f'返回类型错误，期望 list/tuple，实际为 {type(original).__name__}: {original!r}'
-    assert len(original) == 2, f'返回长度错误，期望 {2}，实际为 {len(original)}'
+@pytest.mark.reset
+@pytest.mark.parametrize("case", normal_cases, ids=lambda c: c["title"])
+def test_set_upper_end_type(device, upper_body, left_arm, right_arm, case):
+    title = case["title"]
+    expected = case["expect_data"]
+    target = case["target"]
+    target_device, target_name = {
+        "left": (left_arm, "左臂"),
+        "right": (right_arm, "右臂"),
+        "both": (upper_body, "双臂"),
+    }[target]
+    setting_value = case["end_type"]
+    logger.info(f"》》》》》用例【{title}】开始测试《《《《《")
+    logger.debug(f'test_api:{case["api"]}')
+    logger.debug(f"target:{target}")
+    logger.debug(f'end_type:{case["end_type"]}')
+
+    with allure.step("读取左右臂原始末端类型"):
+        original_left_data = device.result_data(left_arm.get_upper_end_type())
+        original_right_data = device.result_data(right_arm.get_upper_end_type())
+        original_left = original_left_data
+        original_right = original_right_data
     try:
-        with allure.step('调用 set_upper_end_type 接口'):
-            upper_body.set_upper_end_type(case['end_type'])
-        with allure.step('调用 get_upper_end_type 接口'):
-            actual = upper_body.get_upper_end_type()
-            logger.debug('接口 get_upper_end_type 返回：%r', actual)
-        assert isinstance(actual, (list, tuple)), f'返回类型错误，期望 list/tuple，实际为 {type(actual).__name__}: {actual!r}'
-        assert len(actual) == 2, f'返回长度错误，期望 {2}，实际为 {len(actual)}'
-        assert actual == [case['expect_data'], case['expect_data']]
+        with allure.step(f"调用{target_name} set_upper_end_type 接口"):
+            if target == "both":
+                result = upper_body.set_upper_end_type(left=case["end_type"], right=case["end_type"])
+            else:
+                result = target_device.set_upper_end_type(case["end_type"])
+            actual = device.result_data(result)
+            logger.debug(f"接口 set_upper_end_type 返回：{actual}")
+        with allure.step("断言设置接口业务返回值"):
+            allure.attach(str(expected), name="期望业务返回值", attachment_type=allure.attachment_type.TEXT)
+            allure.attach(str(actual), name="实际业务返回值", attachment_type=allure.attachment_type.TEXT)
+            assert actual == expected
+        with allure.step("分别回读左右臂末端类型"):
+            current_left_data = device.result_data(left_arm.get_upper_end_type())
+            current_right_data = device.result_data(right_arm.get_upper_end_type())
+            current_left = current_left_data
+            current_right = current_right_data
+            if target == "left":
+                assert current_left == setting_value
+                assert current_right == original_right
+            elif target == "right":
+                assert current_left == original_left
+                assert current_right == setting_value
+            else:
+                assert current_left == setting_value
+                assert current_right == setting_value
     finally:
-        with allure.step('调用 set_upper_end_type 接口'):
-            upper_body.set_upper_end_type(left=original[0], right=original[1])
-    logger.info(f'✅ 用例【{title}】测试通过')
-    logger.info(f'》》》》》用例【{title}】测试完成《《《《《')
+        with allure.step("分别恢复左右臂原始末端类型"):
+            device.result_data(left_arm.set_upper_end_type(original_left))
+            device.result_data(right_arm.set_upper_end_type(original_right))
+
+    logger.info(f"✅ 用例【{title}】测试通过")
+    logger.info(f"》》》》》用例【{title}】测试完成《《《《《")

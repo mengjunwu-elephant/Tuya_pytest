@@ -1,0 +1,1144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com) 
+     Commit Version: 1.6.0-4-g7f85cfe  Build Version: 1.6.7995.38578
+     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
+<robot
+  name="800x动态+3D">
+  <link
+    name="base_link">
+    <inertial>
+      <origin
+        xyz="5.59460894199208E-06 -0.0518541242943915 0.0707524439532293"
+        rpy="0 0 0" />
+      <mass
+        value="2.54057824915809" />
+      <inertia
+        ixx="0.0119278433510999"
+        ixy="2.53728691698407E-06"
+        ixz="-1.78967325504066E-06"
+        iyy="0.0098953813407589"
+        iyz="-4.06461716940698E-05"
+        izz="0.0157390414681249" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/base_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link
+    name="sjz_Link">
+    <inertial>
+      <origin
+        xyz="-3.88921734859492E-18 -4.05592017536571E-18 -1.76220149583628E-13"
+        rpy="0 0 0" />
+      <mass
+        value="6.16991118430775" />
+      <inertia
+        ixx="0.127674683719094"
+        ixy="-7.59830845466528E-19"
+        ixz="3.61400724161835E-19"
+        iyy="0.122818489228901"
+        iyz="1.92926087828083E-18"
+        izz="0.013568583470577" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/sjz_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/sjz_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="sjz"
+    type="prismatic">
+    <origin
+      xyz="0 0.074 0.238500000000176"
+      rpy="0 0 0" />
+    <parent
+      link="base_link" />
+    <child
+      link="sjz_Link" />
+    <axis
+      xyz="0 -1 0" />
+    <limit
+      lower="0"
+      upper="0"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="body_Link">
+    <inertial>
+      <origin
+        xyz="-4.39274676130276E-06 -0.00685028460808341 -0.00996056040875309"
+        rpy="0 0 0" />
+      <mass
+        value="2.50617766897065" />
+      <inertia
+        ixx="0.016456103135019"
+        ixy="-9.00244331830387E-07"
+        ixz="-2.57774015927154E-06"
+        iyy="0.0243639936582225"
+        iyz="-0.000449921492136935"
+        izz="0.0121266364019571" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/body_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/body_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="body"
+    type="prismatic">
+    <origin
+      xyz="0 0 0.16569068211343"
+      rpy="0 0 0" />
+    <parent
+      link="sjz_Link" />
+    <child
+      link="body_Link" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="0"
+      upper="0"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="bozi_Link">
+    <inertial>
+      <origin
+        xyz="0.0011803108694428 -5.94985547543307E-05 -0.000369283533422915"
+        rpy="0 0 0" />
+      <mass
+        value="0.0737634080051074" />
+      <inertia
+        ixx="6.1051672047394E-05"
+        ixy="2.57948950892097E-08"
+        ixz="1.69399631648418E-07"
+        iyy="4.08796590897945E-05"
+        iyz="-1.12269951563914E-06"
+        izz="3.38371289159199E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/bozi_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/bozi_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="bozi"
+    type="revolute">
+    <origin
+      xyz="0 0 0.216117399906545"
+      rpy="0 0 0" />
+    <parent
+      link="body_Link" />
+    <child
+      link="bozi_Link" />
+    <axis
+      xyz="0 -0.154142632932922 -0.988048606452388" />
+    <limit
+      lower="0"
+      upper="0"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="head_Link">
+    <inertial>
+      <origin
+        xyz="-1.36568256169034E-05 0.0147326786262126 0.0196202848164096"
+        rpy="0 0 0" />
+      <mass
+        value="1.10477693770058" />
+      <inertia
+        ixx="0.00294498820573951"
+        ixy="-3.17718032594166E-07"
+        ixz="2.42769381937814E-07"
+        iyy="0.00602675921677274"
+        iyz="0.000250057279568271"
+        izz="0.00714962575985435" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/head_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/head_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="head"
+    type="revolute">
+    <origin
+      xyz="0 0.0104395325309457 0.066917019476225"
+      rpy="0 0 0" />
+    <parent
+      link="bozi_Link" />
+    <child
+      link="head_Link" />
+    <axis
+      xyz="1 0 0" />
+    <limit
+      lower="0"
+      upper="0"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="3d_Link">
+    <inertial>
+      <origin
+        xyz="-0.000246575946070463 -0.00944476789714171 0.00900048123993957"
+        rpy="0 0 0" />
+      <mass
+        value="0.0447624128553249" />
+      <inertia
+        ixx="3.94543942675652E-06"
+        ixy="-1.74357051429678E-07"
+        ixz="1.71629714070888E-07"
+        iyy="2.73143508101051E-05"
+        iyz="4.21845203564803E-08"
+        izz="2.73202913797448E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/3d_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/3d_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="3d"
+    type="fixed">
+    <origin
+      xyz="0 0.11514 -0.027462"
+      rpy="0 0 0" />
+    <parent
+      link="head_Link" />
+    <child
+      link="3d_Link" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="J1L_Link">
+    <inertial>
+      <origin
+        xyz="-0.0253049100764646 0.000114621370885358 0.0435626862020836"
+        rpy="0 0 0" />
+      <mass
+        value="0.259920806447113" />
+      <inertia
+        ixx="0.000282465948424463"
+        ixy="-2.22182733048416E-07"
+        ixz="7.04950279528202E-05"
+        iyy="0.000443788221448472"
+        iyz="-5.85353102195125E-07"
+        izz="0.00027871016384376" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/J1L_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/J1L_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="J1L"
+    type="revolute">
+    <origin
+      xyz="-0.113583009912262 0 0.142481652109722"
+      rpy="0 -1.36135681655558 0" />
+    <parent
+      link="body_Link" />
+    <child
+      link="J1L_Link" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="0"
+      upper="0"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="J2L_Link">
+    <inertial>
+      <origin
+        xyz="2.88820646521248E-06 -0.0534187558923963 0.00161217053312421"
+        rpy="0 0 0" />
+      <mass
+        value="0.156443993862735" />
+      <inertia
+        ixx="0.000327609883963481"
+        ixy="-2.48211081161368E-08"
+        ixz="2.96312968505484E-08"
+        iyy="0.000265299472098655"
+        iyz="1.98302976089175E-05"
+        izz="0.00033182822625866" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/J2L_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.698039215686274 0.698039215686274 0.698039215686274 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/J2L_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="J2L"
+    type="revolute">
+    <origin
+      xyz="-0.0404819124273659 -0.000268025950260972 0.068100000000094"
+      rpy="1.56417554190849 1.5707963267949 0" />
+    <parent
+      link="J1L_Link" />
+    <child
+      link="J2L_Link" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="0"
+      upper="0"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="J3L_Link">
+    <inertial>
+      <origin
+        xyz="-0.000990232465384988 -0.0171033072372646 0.131021324056683"
+        rpy="0 0 0" />
+      <mass
+        value="0.307016045556258" />
+      <inertia
+        ixx="0.000446407279709254"
+        ixy="9.22723249707306E-07"
+        ixz="-1.14770552054764E-06"
+        iyy="0.00040754946954576"
+        iyz="-5.73881418563608E-06"
+        izz="0.000450444868272704" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/J3L_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/J3L_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="J3L"
+    type="revolute">
+    <origin
+      xyz="0 -0.106199904473329 0"
+      rpy="1.5707963267949 -0.00140728006057626 0" />
+    <parent
+      link="J2L_Link" />
+    <child
+      link="J3L_Link" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="0"
+      upper="0"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="L4L_Link">
+    <inertial>
+      <origin
+        xyz="-0.0886599818533644 0.0428762485756458 -0.000454053424786049"
+        rpy="0 0 0" />
+      <mass
+        value="0.305134873797452" />
+      <inertia
+        ixx="0.000444491598372779"
+        ixy="-1.44575564012256E-05"
+        ixz="7.37119569534595E-07"
+        iyy="0.000273649342472376"
+        iyz="6.73436874683826E-07"
+        izz="0.0002708606189249" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/L4L_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.698039215686274 0.698039215686274 0.698039215686274 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/L4L_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="L4L"
+    type="revolute">
+    <origin
+      xyz="-5.62911838439262E-05 -0.0399999603912641 0.199435015547135"
+      rpy="1.5707963267949 1.5641755419088 1.56938904673432" />
+    <parent
+      link="J3L_Link" />
+    <child
+      link="L4L_Link" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="0"
+      upper="0"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="J5L_Link">
+    <inertial>
+      <origin
+        xyz="-0.000368392999203049 0.000618450923913281 0.0630622172737465"
+        rpy="0 0 0" />
+      <mass
+        value="0.141525893239123" />
+      <inertia
+        ixx="0.000331037538178106"
+        ixy="-3.84863813530558E-08"
+        ixz="-4.39844711697344E-07"
+        iyy="0.000241576877225469"
+        iyz="-2.94389202216882E-06"
+        izz="0.000138766836036227" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/J5L_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.698039215686274 0.698039215686274 0.698039215686274 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/J5L_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="J5L"
+    type="revolute">
+    <origin
+      xyz="-0.130602302220359 0.0408655790931273 0"
+      rpy="-1.57079632679494 -1.56938904673431 1.56417554190878" />
+    <parent
+      link="L4L_Link" />
+    <child
+      link="J5L_Link" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="0"
+      upper="0"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="J6L_Link">
+    <inertial>
+      <origin
+        xyz="0.0280644351437543 -0.000186928527180351 0.00232692684436603"
+        rpy="0 0 0" />
+      <mass
+        value="0.0900075391346392" />
+      <inertia
+        ixx="8.38854018891136E-05"
+        ixy="4.34856313242993E-07"
+        ixz="6.69518889257193E-06"
+        iyy="0.000149450887067754"
+        iyz="-4.51812398837683E-08"
+        izz="0.000190084073463883" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/J6L_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.698039215686274 0.698039215686274 0.698039215686274 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/J6L_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="J6L"
+    type="revolute">
+    <origin
+      xyz="0 0 0.106625221147976"
+      rpy="-1.5707963267948 -1.5641755419085 -1.57220360685557" />
+    <parent
+      link="J5L_Link" />
+    <child
+      link="J6L_Link" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="0"
+      upper="0"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="J7L_Link">
+    <inertial>
+      <origin
+        xyz="-0.00057501622543682 -0.0683003255487623 9.05312959455259E-05"
+        rpy="0 0 0" />
+      <mass
+        value="0.297581006216162" />
+      <inertia
+        ixx="0.000117736567345657"
+        ixy="-1.36451046909325E-07"
+        ixz="-1.74261024211618E-07"
+        iyy="0.000135444522166005"
+        iyz="8.27448692795834E-09"
+        izz="0.000143785284641927" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/J7L_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/J7L_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="J7L"
+    type="revolute">
+    <origin
+      xyz="0.0757983386674323 -0.000501851827942713 0"
+      rpy="-1.67136733160318 -1.57079631189374 -3.05191197721868" />
+    <parent
+      link="J6L_Link" />
+    <child
+      link="J7L_Link" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="0"
+      upper="0"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="J1R_Link">
+    <inertial>
+      <origin
+        xyz="0.0253035966296489 -0.000282156054628829 0.0435626861087144"
+        rpy="0 0 0" />
+      <mass
+        value="0.259920806887416" />
+      <inertia
+        ixx="0.000282470079291557"
+        ixy="8.45884738407336E-07"
+        ixz="-7.04896078123594E-05"
+        iyy="0.000443784094281704"
+        iyz="1.05206866402648E-06"
+        izz="0.000278710164977373" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/J1R_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/J1R_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="J1R"
+    type="revolute">
+    <origin
+      xyz="0.113583009912792 0 0.142481652109719"
+      rpy="0 1.36135681655558 0" />
+    <parent
+      link="body_Link" />
+    <child
+      link="J1R_Link" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="0"
+      upper="0"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="J2R_Link">
+    <inertial>
+      <origin
+        xyz="2.89475084469526E-06 0.0534187331813981 -0.00161215553827175"
+        rpy="0 0 0" />
+      <mass
+        value="0.156444058378133" />
+      <inertia
+        ixx="0.000327610110205335"
+        ixy="2.47036297122398E-08"
+        ixz="-2.9601014330941E-08"
+        iyy="0.00026529983402114"
+        iyz="1.98303257291674E-05"
+        izz="0.000331828727729619" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/J2R_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.698039215686274 0.698039215686274 0.698039215686274 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/J2R_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="J2R"
+    type="revolute">
+    <origin
+      xyz="0.0404827997017002 0 0.0680999999997861"
+      rpy="1.5707963267949 1.5707963267949 0" />
+    <parent
+      link="J1R_Link" />
+    <child
+      link="J2R_Link" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="0"
+      upper="0"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="J3R_Link">
+    <inertial>
+      <origin
+        xyz="0.000627656924116871 0.00996342134205901 0.120829445183667"
+        rpy="0 0 0" />
+      <mass
+        value="0.472619251905888" />
+      <inertia
+        ixx="0.000554843533185717"
+        ixy="9.76169930715209E-07"
+        ixz="1.13953397138055E-06"
+        iyy="0.000514247499089654"
+        iyz="5.74245901288315E-06"
+        izz="0.000648331800867485" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/J3R_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/J3R_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="J3R"
+    type="revolute">
+    <origin
+      xyz="0 0.106199904473252 0"
+      rpy="-1.5707963267949 0 0" />
+    <parent
+      link="J2R_Link" />
+    <child
+      link="J3R_Link" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="0"
+      upper="0"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="J4R_Link">
+    <inertial>
+      <origin
+        xyz="-0.0889410715368561 0.0422868428065464 -0.000454232953524814"
+        rpy="0 0 0" />
+      <mass
+        value="0.305146570041793" />
+      <inertia
+        ixx="0.000444679840292901"
+        ixy="-1.33243233420176E-05"
+        ixz="7.32947768371619E-07"
+        iyy="0.000273466596385753"
+        iyz="6.76850219887618E-07"
+        izz="0.000270862166015495" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/J4R_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.698039215686274 0.698039215686274 0.698039215686274 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/J4R_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="J4R"
+    type="revolute">
+    <origin
+      xyz="0 0.0400000000000043 0.19943501554722"
+      rpy="3.14159265358979 1.5707963267949 0" />
+    <parent
+      link="J3R_Link" />
+    <child
+      link="J4R_Link" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="0"
+      upper="0"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="J5R_Link">
+    <inertial>
+      <origin
+        xyz="-0.000615695194665717 -0.000366632645599496 0.063062151945591"
+        rpy="0 0 0" />
+      <mass
+        value="0.141530043256966" />
+      <inertia
+        ixx="0.000241581908463618"
+        ixy="-8.82543112232686E-08"
+        ixz="2.93323808201576E-06"
+        iyy="0.000331044066212763"
+        iyz="-4.34577275974432E-07"
+        izz="0.000138769681930743" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/J5R_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.698039215686274 0.698039215686274 0.698039215686274 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/J5R_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="J5R"
+    type="revolute">
+    <origin
+      xyz="-0.130869999999999 0.0400000000000005 0"
+      rpy="1.5707963267949 0 -1.5707963267949" />
+    <parent
+      link="J4R_Link" />
+    <child
+      link="J5R_Link" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="0"
+      upper="0"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="J6R_Link">
+    <inertial>
+      <origin
+        xyz="0.0280654629303513 5.66928905866334E-08 -0.0023267096160608"
+        rpy="0 0 0" />
+      <mass
+        value="0.0900058596343658" />
+      <inertia
+        ixx="8.38813505546489E-05"
+        ixy="-6.71169126567579E-10"
+        ixz="-6.69535263827982E-06"
+        iyy="0.000149455223490356"
+        iyz="-8.97122693210307E-10"
+        izz="0.00019008502561279" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/J6R_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.698039215686274 0.698039215686274 0.698039215686274 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/J6R_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="J6R"
+    type="revolute">
+    <origin
+      xyz="0 0 0.106625221148117"
+      rpy="-2.6207276499976 -1.57079630572147 -2.16064014511011" />
+    <parent
+      link="J5R_Link" />
+    <child
+      link="J6R_Link" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="0"
+      upper="0"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="J7R_Link">
+    <inertial>
+      <origin
+        xyz="-0.0683003259180162 -0.000575015733406847 -9.05306583133588E-05"
+        rpy="0 0 0" />
+      <mass
+        value="0.297581006522054" />
+      <inertia
+        ixx="0.00013544453021336"
+        ixy="-1.36449279839155E-07"
+        ixz="-8.2766205834352E-09"
+        iyy="0.000117736564223794"
+        iyz="1.74259734147967E-07"
+        izz="0.000143785276106689" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/J7R_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://800x动态+3D/meshes/J7R_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="J7R"
+    type="revolute">
+    <origin
+      xyz="0.0758000000000025 0 0"
+      rpy="1.5707963267949 0 3.14159265358979" />
+    <parent
+      link="J6R_Link" />
+    <child
+      link="J7R_Link" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="0"
+      upper="0"
+      effort="0"
+      velocity="0" />
+  </joint>
+</robot>

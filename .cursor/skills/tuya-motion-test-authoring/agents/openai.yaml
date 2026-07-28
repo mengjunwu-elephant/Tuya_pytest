@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tuya Motion Test Authoring"
+  short_description: "编写带软限位和避碰门控的 TuyaRobot 运动用例"
+  default_prompt: "按照仓库运动安全规范编写或审查 TuyaRobot 运动接口测试与 Excel 数据。"

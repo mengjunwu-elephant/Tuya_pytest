@@ -52,14 +52,14 @@ def _env_int(name: str, default: int) -> int:
 
 @dataclass(frozen=True)
 class TuyaConnectionConfig:
-    upper_ip: str = "192.168.1.232"
+    upper_ip: str = "192.168.0.232"
     upper_port: int = 6500
     head_port: str = "COM4"
     head_baud: int = 115200
     chassis_port: str = "COM16"
     chassis_baud: int = 2_000_000
     head_auto_connect: bool = False
-    chassis_auto_connect: bool = True
+    chassis_auto_connect: bool = False
     apply_limits_on_init: bool = False
     debug: bool = True
     plain_return: bool = True
@@ -95,8 +95,36 @@ class TuyaConnectionConfig:
 class TuyaRobotBase:
     """整机测试设备，集中暴露 TuyaRobot 的各个子系统。"""
 
-    speed = 50
+    speed = 20
+    angle_tolerance = 0.1
+    coord_tolerance = 1
     head_speed = 40
+    UPPER_BODY_ZERO_ANGLES = (0.0,) * 8
+    COORD_MOTION_INITIAL_ANGLES = {
+        "left": (-89.99, 39.99, 0.0, -100.0, 0.0, 0.0, 0.02, 0.0),
+        "right": (90.0, 39.99, 0.0, -100.0, 0.03, 0.0, 0.0, 0.0),
+    }
+    COORD_MOTION_INITIAL_COORDS = {
+        "left": (519.4, 160.2, 7.5, 97.77, 9.15, -49.36),
+        "right": (519.7, -160.6, 7.3, -97.73, 9.18, 49.29),
+    }
+    UPPER_BODY_JOINT_SOFT_LIMITS = {
+        1: (-166.0, 166.0),
+        2: (-100.0, 100.0),
+        3: (-166.0, 166.0),
+        4: (-170.0, 10.0),
+        5: (-166.0, 166.0),
+        6: (-100.0, 100.0),
+        7: (-100.0, 100.0),
+    }
+    UPPER_BODY_COORD_SOFT_LIMITS = {
+        1: (-650.0, 650.0),
+        2: (-775.0, 775.0),
+        3: (-800.0, 650.0),
+        4: (-180.0, 180.0),
+        5: (-180.0, 180.0),
+        6: (-180.0, 180.0),
+    }
     ROBOT_TEST_DATA_FILE = ROBOT_TEST_DATA_FILE
     UPPER_BODY_TEST_DATA_FILE = UPPER_BODY_TEST_DATA_FILE
     CHASSIS_TEST_DATA_FILE = CHASSIS_TEST_DATA_FILE
@@ -123,23 +151,90 @@ class TuyaRobotBase:
         self.chassis = self.robot.chassis
 
     @staticmethod
-    def _result_data(result):
+    def result_data(result):
+        """统一提取左臂、右臂和整臂接口的业务返回数据。"""
         if isinstance(result, CommandResult):
             if not result.ok:
                 raise RuntimeError(result.message or "TuyaRobot command failed")
             return result.data
         return result
 
-    def wait_upper(self, timeout: float = 120.0) -> None:
+    def go_zero(self, timeout: float = 30.0):
+        """双臂整臂回零并等待运动完成。"""
+        result = self.robot.upper_go_zero(_async=False)
+        self.result_data(result)
+        self.wait_upper(timeout=timeout)
+        return result
+
+    def go_arm_zero(self, arm_side: str, timeout: float = 30.0):
+        """指定单臂整臂回零并等待运动完成。"""
+        if arm_side not in ("left", "right"):
+            raise ValueError(f"不支持的手臂标识: {arm_side!r}")
+        arm = self.left_arm if arm_side == "left" else self.right_arm
+        result = arm.upper_go_zero()
+        self.result_data(result)
+        self.wait_upper(timeout=timeout)
+        return result
+
+    def move_to_coord_initial_pose(self, arm_side: str | None = None, timeout: float = 30.0):
+        """将指定单臂或双臂移动到已确认的坐标运动初始关节姿态。"""
+        if arm_side not in (None, "left", "right"):
+            raise ValueError(f"不支持的手臂标识: {arm_side!r}")
+        if arm_side is None:
+            result = self.robot.send_upper_angles(
+                self.COORD_MOTION_INITIAL_ANGLES["left"],
+                self.speed,
+                self.speed,
+                self.COORD_MOTION_INITIAL_ANGLES["right"],
+                self.speed,
+                self.speed,
+            )
+        else:
+            arm = self.left_arm if arm_side == "left" else self.right_arm
+            result = arm.send_upper_angles(
+                self.COORD_MOTION_INITIAL_ANGLES[arm_side],
+                self.speed,
+                self.speed,
+            )
+        self.result_data(result)
+        self.wait_upper(timeout=timeout)
+        if arm_side is None:
+            actual = self.result_data(self.upper_body.get_upper_coords())
+            if not isinstance(actual, dict) or "left" not in actual or "right" not in actual:
+                raise RuntimeError(f"坐标运动初始姿态回读格式错误: {actual!r}")
+            actual_by_side = actual
+            target_sides = ("left", "right")
+        else:
+            arm = self.left_arm if arm_side == "left" else self.right_arm
+            actual = self.result_data(arm.get_upper_coords())
+            actual_by_side = {arm_side: actual}
+            target_sides = (arm_side,)
+        for target_side in target_sides:
+            expected = self.COORD_MOTION_INITIAL_COORDS[target_side]
+            current = actual_by_side[target_side]
+            if not isinstance(current, (list, tuple)) or len(current) != 6:
+                raise RuntimeError(f"{target_side} 臂坐标回读格式错误: {current!r}")
+            for index, (actual_value, expected_value) in enumerate(zip(current, expected), start=1):
+                if abs(float(actual_value) - expected_value) > self.coord_tolerance:
+                    raise RuntimeError(
+                        f"{target_side} 臂坐标轴 {index} 未到初始姿态，"
+                        f"期望: {expected_value}，实际: {actual_value}"
+                    )
+        return actual
+
+    def wait_upper(self, timeout: float = 30.0) -> None:
         deadline = time.monotonic() + timeout
-        while bool(self._result_data(self.upper_body.get_upper_is_moving())):
+        while True:
+            states = self.result_data(self.upper_body.get_upper_is_moving())
+            if not isinstance(states, (list, tuple)) or len(states) != 2:
+                raise RuntimeError(f"上半身运动状态格式错误: {states!r}")
+            if not all(state in (0, 1, False, True) for state in states):
+                raise RuntimeError(f"上半身运动状态值错误: {states!r}")
+            if not any(bool(state) for state in states):
+                return
             if time.monotonic() >= deadline:
                 raise TimeoutError(f"上半身在 {timeout:g} 秒内未停止")
-            time.sleep(0.1)
+            time.sleep(0.2)
 
     def close(self) -> None:
         self.robot.close()
-
-
-# 兼容前一阶段已经使用的类名，新增代码统一使用 TuyaRobotBase。
-Tuya_stm32Base = TuyaRobotBase
