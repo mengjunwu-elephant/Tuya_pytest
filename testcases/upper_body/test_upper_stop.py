@@ -1,31 +1,36 @@
 # -*- coding: utf-8 -*-
 import allure
 import pytest
+
+from common1 import logger
 from common1.test_data_handler import get_test_data_from_excel
 from settings import TuyaRobotBase
-from common1 import logger
-cases = get_test_data_from_excel(TuyaRobotBase.UPPER_BODY_TEST_DATA_FILE, 'upper_stop')
 
-@allure.feature('UpperBody')
-@allure.story('upper_stop')
+cases = get_test_data_from_excel(TuyaRobotBase.UPPER_BODY_TEST_DATA_FILE, "upper_stop")
+
+
+@allure.feature("上半身运动控制")
+@allure.story("停止单臂和双臂运动")
 @pytest.mark.upper_body
-@pytest.mark.parametrize('case', cases, ids=lambda case: case['title'])
-def test_upper_stop(upper_body, case):
-    title = case['title']
-    logger.info(f'》》》》》用例【{title}】开始测试《《《《《')
-    with allure.step('检查上半身上电状态'):
-        power_state = upper_body.is_upper_powered_on()
-        assert isinstance(power_state, (list, tuple)), f'上电状态类型错误: {power_state!r}'
-        assert len(power_state) == 2, f'上电状态长度错误: {power_state!r}'
-        if list(power_state) != [1, 1]:
-            pytest.skip(f'上半身未完成双臂上电: {power_state!r}')
-    with allure.step('调用 upper_stop 接口'):
-        upper_body.upper_stop()
-    with allure.step('调用 get_upper_is_moving 接口'):
-        states = upper_body.get_upper_is_moving()
-        logger.debug('接口 get_upper_is_moving 返回：%r', states)
-    assert isinstance(states, (list, tuple)), f'返回类型错误，期望 list/tuple，实际为 {type(states).__name__}: {states!r}'
-    assert len(states) == 2, f'返回长度错误，期望 {2}，实际为 {len(states)}'
-    assert all((state == case['expect_data'] for state in states))
-    logger.info(f'✅ 用例【{title}】测试通过')
-    logger.info(f'》》》》》用例【{title}】测试完成《《《《《')
+@pytest.mark.parametrize("case", cases, ids=lambda c: c["title"])
+def test_upper_stop(device, upper_body, left_arm, right_arm, case):
+    title, target = case["title"], case["target"]
+    expected, expected_state = case["expect_data"], case["expect_state"]
+    target_device, target_name = {"left": (left_arm, "左臂"), "right": (right_arm, "右臂"), "both": (upper_body, "双臂")}[target]
+    logger.info(f"》》》》》用例【{title}】开始测试《《《《《")
+    logger.debug(f'test_api:{case["api"]}')
+    logger.debug(f"target:{target}")
+    with allure.step(f"调用{target_name} upper_stop 接口"):
+        actual = device.result_data(target_device.upper_stop())
+    with allure.step("断言停止接口业务返回值"):
+        allure.attach(str(expected), name="期望业务返回值", attachment_type=allure.attachment_type.TEXT)
+        allure.attach(str(actual), name="实际业务返回值", attachment_type=allure.attachment_type.TEXT)
+        assert actual == expected
+    with allure.step(f"查询并断言{target_name}运动状态"):
+        state = device.result_data(target_device.get_upper_is_moving())
+        if target == "both":
+            assert list(state) == [expected_state, expected_state]
+        else:
+            assert state == expected_state
+    logger.info(f"✅ 用例【{title}】测试通过")
+    logger.info(f"》》》》》用例【{title}】测试完成《《《《《")

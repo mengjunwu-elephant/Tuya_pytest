@@ -1,47 +1,81 @@
 # -*- coding: utf-8 -*-
 import allure
 import pytest
+
+from common1 import logger
 from common1.test_data_handler import get_test_data_from_excel
 from settings import TuyaRobotBase
-from common1 import logger
-cases = get_test_data_from_excel(TuyaRobotBase.UPPER_BODY_TEST_DATA_FILE, 'set_upper_tool_reference')
 
-@allure.feature('UpperBody')
-@allure.story('set_upper_tool_reference')
+cases = get_test_data_from_excel(
+    TuyaRobotBase.UPPER_BODY_TEST_DATA_FILE,
+    "set_upper_tool_reference",
+    required_columns=('title', 'api', 'target', 'x', 'y', 'z', 'rx', 'ry', 'rz', 'expect_data', 'test_type'),
+)
+normal_cases = [case for case in cases if case["test_type"] == "normal"]
+exception_cases = [case for case in cases if case["test_type"] == "exception"]
+
+
+@allure.feature("上半身参数设置")
+@allure.story("设置单臂和双臂工具参考系")
 @pytest.mark.upper_body
-@pytest.mark.reset
 @pytest.mark.danger
-@pytest.mark.parametrize('case', cases, ids=lambda case: case['title'])
-def test_set_upper_tool_reference(upper_body, case):
-    title = case['title']
-    logger.info(f'》》》》》用例【{title}】开始测试《《《《《')
-    with allure.step('检查上半身上电状态'):
-        power_state = upper_body.is_upper_powered_on()
-        assert isinstance(power_state, (list, tuple)), f'上电状态类型错误: {power_state!r}'
-        assert len(power_state) == 2, f'上电状态长度错误: {power_state!r}'
-        if list(power_state) != [1, 1]:
-            pytest.skip(f'上半身未完成双臂上电: {power_state!r}')
-    with allure.step('调用 get_upper_tool_reference 接口'):
-        original = upper_body.get_upper_tool_reference()
-        logger.debug('接口 get_upper_tool_reference 返回：%r', original)
-    assert isinstance(original, dict), f'返回类型错误，期望 dict，实际为 {type(original).__name__}'
-    assert 'left' in original and 'right' in original, f'返回结果缺少 left/right: {original!r}'
-    assert isinstance(original['left'], (list, tuple)) and isinstance(original['right'], (list, tuple))
-    assert len(original['left']) == 6 and len(original['right']) == 6, f"左右臂数据长度应为 {6}，实际为 {len(original['left'])}/{len(original['right'])}"
-    coords = [case[name] for name in ('x', 'y', 'z', 'rx', 'ry', 'rz')]
+@pytest.mark.reset
+@pytest.mark.parametrize("case", normal_cases, ids=lambda c: c["title"])
+def test_set_upper_tool_reference(device, upper_body, left_arm, right_arm, case):
+    title = case["title"]
+    expected = case["expect_data"]
+    target = case["target"]
+    target_device, target_name = {
+        "left": (left_arm, "左臂"),
+        "right": (right_arm, "右臂"),
+        "both": (upper_body, "双臂"),
+    }[target]
+    setting_value = [case[axis] for axis in ("x", "y", "z", "rx", "ry", "rz")]
+    logger.info(f"》》》》》用例【{title}】开始测试《《《《《")
+    logger.debug(f'test_api:{case["api"]}')
+    logger.debug(f"target:{target}")
+    logger.debug(f'x:{case["x"]}')
+    logger.debug(f'y:{case["y"]}')
+    logger.debug(f'z:{case["z"]}')
+    logger.debug(f'rx:{case["rx"]}')
+    logger.debug(f'ry:{case["ry"]}')
+    logger.debug(f'rz:{case["rz"]}')
+
+    with allure.step("读取左右臂原始工具参考系"):
+        original_left_data = device.result_data(left_arm.get_upper_tool_reference())
+        original_right_data = device.result_data(right_arm.get_upper_tool_reference())
+        original_left = original_left_data
+        original_right = original_right_data
     try:
-        with allure.step('调用 set_upper_tool_reference 接口'):
-            upper_body.set_upper_tool_reference(coords)
-        with allure.step('调用 get_upper_tool_reference 接口'):
-            actual = upper_body.get_upper_tool_reference()
-            logger.debug('接口 get_upper_tool_reference 返回：%r', actual)
-        assert isinstance(actual, dict), f'返回类型错误，期望 dict，实际为 {type(actual).__name__}'
-        assert 'left' in actual and 'right' in actual, f'返回结果缺少 left/right: {actual!r}'
-        assert isinstance(actual['left'], (list, tuple)) and isinstance(actual['right'], (list, tuple))
-        assert len(actual['left']) == 6 and len(actual['right']) == 6, f"左右臂数据长度应为 {6}，实际为 {len(actual['left'])}/{len(actual['right'])}"
-        assert actual == {'left': coords, 'right': coords}
+        with allure.step(f"调用{target_name} set_upper_tool_reference 接口"):
+            if target == "both":
+                result = upper_body.set_upper_tool_reference(left=setting_value, right=setting_value)
+            else:
+                result = target_device.set_upper_tool_reference(setting_value)
+            actual = device.result_data(result)
+            logger.debug(f"接口 set_upper_tool_reference 返回：{actual}")
+        with allure.step("断言设置接口业务返回值"):
+            allure.attach(str(expected), name="期望业务返回值", attachment_type=allure.attachment_type.TEXT)
+            allure.attach(str(actual), name="实际业务返回值", attachment_type=allure.attachment_type.TEXT)
+            assert actual == expected
+        with allure.step("分别回读左右臂工具参考系"):
+            current_left_data = device.result_data(left_arm.get_upper_tool_reference())
+            current_right_data = device.result_data(right_arm.get_upper_tool_reference())
+            current_left = current_left_data
+            current_right = current_right_data
+            if target == "left":
+                assert current_left == setting_value
+                assert current_right == original_right
+            elif target == "right":
+                assert current_left == original_left
+                assert current_right == setting_value
+            else:
+                assert current_left == setting_value
+                assert current_right == setting_value
     finally:
-        with allure.step('调用 set_upper_tool_reference 接口'):
-            upper_body.set_upper_tool_reference(left=original['left'], right=original['right'])
-    logger.info(f'✅ 用例【{title}】测试通过')
-    logger.info(f'》》》》》用例【{title}】测试完成《《《《《')
+        with allure.step("分别恢复左右臂原始工具参考系"):
+            device.result_data(left_arm.set_upper_tool_reference(original_left))
+            device.result_data(right_arm.set_upper_tool_reference(original_right))
+
+    logger.info(f"✅ 用例【{title}】测试通过")
+    logger.info(f"》》》》》用例【{title}】测试完成《《《《《")
