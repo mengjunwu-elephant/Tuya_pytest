@@ -11,7 +11,7 @@ description: >-
 
 - 头部测试位于 `testcases/head/`，数据位于 `test_data/head.xlsx`；使用该目录的独立 `head` fixture，不依赖整机或串口。
 - TCP 参数为 `--head-ip`、`--head-port`，环境变量为 `TUYA_HEAD_IP`、`TUYA_HEAD_PORT`，默认 `192.168.0.231:6501`；必须显式启用 `--connect-head`。
-- 每个接口使用同名 sheet，首行至少包含 `ID`、`title`、`api`、`test_type`、输入参数、`expect_data`、`expect_kind`、恢复参数、`timeout`、`tolerance`。
+- 每个接口使用同名 sheet 和同名 `test_<api>.py` 测试文件；急停等跨接口安全场景使用单独专项文件，不得将多个接口聚合到通用分发测试中。首行至少包含 `ID`、`title`、`api`、`test_type`、输入参数、`expect_data`、`expect_kind`、恢复参数、`timeout`、`tolerance`。
 
 ## 优先级与方法
 
