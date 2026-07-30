@@ -486,6 +486,17 @@ class ArchitectureTests(unittest.TestCase):
         source = inspect.getsource(UpperMotionRunner.run_jog_angles)
         self.assertNotIn(".upper_stop", source)
 
+    def test_software_limits_use_latest_confirmed_values(self) -> None:
+        self.assertEqual(
+            constants.JOINT_SOFT_LIMITS[2], (-80.0, 105.0)
+        )
+        self.assertEqual(
+            constants.COORD_SOFT_LIMITS[2], (-841.0, 841.0)
+        )
+        self.assertEqual(
+            constants.COORD_SOFT_LIMITS[3], (-636.0, 665.0)
+        )
+
     def test_angle_groups_have_no_zero_between_three_groups(self) -> None:
         runner, device = upper_runner_with_fake()
         runner.run_angle_groups()
