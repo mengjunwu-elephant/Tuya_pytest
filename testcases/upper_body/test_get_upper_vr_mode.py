@@ -9,7 +9,7 @@ from settings import TuyaRobotBase
 cases = get_test_data_from_excel(
     TuyaRobotBase.UPPER_BODY_TEST_DATA_FILE,
     "get_upper_vr_mode",
-    required_columns=('title', 'api', 'target', 'test_type'),
+    required_columns=("title", "api", "target", "test_type"),
 )
 
 
@@ -27,17 +27,21 @@ def test_get_upper_vr_mode(device, upper_body, left_arm, right_arm, case):
     }
     target_device, target_name = targets[target]
 
-    logger.info(f"》》》》》用例【{title}】开始测试《《《《《")
+    logger.info(f">>>>>>>>>>用例【{title}】开始测试<<<<<<<<<<")
     logger.debug(f'test_api:{case["api"]}')
     logger.debug(f"target:{target}")
 
     with allure.step(f"调用{target_name} get_upper_vr_mode 接口"):
-        result = target_device.get_upper_vr_mode()
-        actual = device.result_data(result)
+        actual = device.result_data(target_device.get_upper_vr_mode())
         logger.debug(f"接口 get_upper_vr_mode 返回：{actual}")
 
     with allure.step(f"断言{target_name}VR模式返回结构"):
-        assert isinstance(actual, int) and not isinstance(actual, bool), f"返回类型错误：{actual!r}"
+        if target == "both":
+            assert isinstance(actual, (list, tuple)), f"双臂返回类型错误：{actual!r}"
+            assert len(actual) == 2, f"双臂返回长度错误：{actual!r}"
+            assert all(isinstance(value, int) and not isinstance(value, bool) for value in actual)
+        else:
+            assert isinstance(actual, int) and not isinstance(actual, bool), f"单臂返回类型错误：{actual!r}"
 
-    logger.info(f"✅ 用例【{title}】测试通过")
-    logger.info(f"》》》》》用例【{title}】测试完成《《《《《")
+    logger.info(f"✓ 用例【{title}】测试通过")
+    logger.info(f">>>>>>>>>>用例【{title}】测试完成<<<<<<<<<<")

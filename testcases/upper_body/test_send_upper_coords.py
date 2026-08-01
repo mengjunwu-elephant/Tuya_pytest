@@ -61,6 +61,9 @@ def test_send_upper_coords(device, upper_body, left_arm, right_arm, case):
     with allure.step("读取运动前双臂刷新模式"):
         original_modes = device.result_data(upper_body.get_upper_fresh_mode())
         assert isinstance(original_modes, (list, tuple)) and len(original_modes) == 2
+    with allure.step("读取运动前默认异步状态"):
+        original_motion_async = upper_body.get_upper_motion_async()
+        assert isinstance(original_motion_async, bool)
     try:
         with allure.step(f"设置{target_name}为{mode_name}"):
             if target == "left":
@@ -81,6 +84,11 @@ def test_send_upper_coords(device, upper_body, left_arm, right_arm, case):
                 assert actual_modes[0] == fresh_mode, f"左臂模式不一致，期望：{fresh_mode}，实际：{actual_modes[0]}"
             if target in ("right", "both"):
                 assert actual_modes[1] == fresh_mode, f"右臂模式不一致，期望：{fresh_mode}，实际：{actual_modes[1]}"
+
+        with allure.step(f"设置{mode_name}对应的默认异步状态"):
+            expected_motion_async = fresh_mode == 1
+            actual_motion_async = upper_body.set_upper_motion_async(expected_motion_async)
+            assert actual_motion_async is expected_motion_async
 
         with allure.step(f"调用{target_name} send_upper_coords 接口"):
             if target == "left":
@@ -107,13 +115,15 @@ def test_send_upper_coords(device, upper_body, left_arm, right_arm, case):
                 assert_almost_equal(list(actual_coords["left"]), left_coords, tol=TuyaRobotBase.coord_tolerance, name="左臂全坐标运动")
                 assert_almost_equal(list(actual_coords["right"]), right_coords, tol=TuyaRobotBase.coord_tolerance, name="右臂全坐标运动")
     finally:
+        with allure.step("回零前恢复双臂插补模式和默认同步状态"):
+            assert device.result_data(upper_body.set_upper_fresh_mode(0)) == 1
+            assert upper_body.set_upper_motion_async(False) is False
         with allure.step("当前全坐标运动用例结束后双臂回零"):
             device.go_zero()
-        with allure.step("恢复左右臂原始刷新模式"):
-            left_mode_result = left_arm.set_upper_fresh_mode(int(original_modes[0]))
-            right_mode_result = right_arm.set_upper_fresh_mode(int(original_modes[1]))
-            assert device.result_data(left_mode_result) == 1
-            assert device.result_data(right_mode_result) == 1
+        with allure.step("恢复运动前双臂刷新模式和默认异步状态"):
+            assert device.result_data(left_arm.set_upper_fresh_mode(int(original_modes[0]))) == 1
+            assert device.result_data(right_arm.set_upper_fresh_mode(int(original_modes[1]))) == 1
+            assert upper_body.set_upper_motion_async(original_motion_async) is original_motion_async
     logger.info(f"✅ 用例【{title}】测试通过")
     logger.info(f"》》》》》用例【{title}】测试完成《《《《《")
 

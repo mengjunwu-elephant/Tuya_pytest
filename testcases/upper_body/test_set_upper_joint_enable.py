@@ -5,9 +5,24 @@ import pytest
 from common1 import logger
 from common1.operator_input import prompt_continue
 from common1.test_data_handler import get_test_data_from_excel
+from pytuyarobot.validation import TuyaRobotDualArmDataException
 from settings import TuyaRobotBase
 
-cases = get_test_data_from_excel(TuyaRobotBase.UPPER_BODY_TEST_DATA_FILE, "set_upper_joint_enable")
+cases = get_test_data_from_excel(
+    TuyaRobotBase.UPPER_BODY_TEST_DATA_FILE,
+    "set_upper_joint_enable",
+    required_columns=(
+        "title",
+        "api",
+        "target",
+        "joint_id",
+        "state",
+        "expect_data",
+        "test_type",
+    ),
+)
+normal_cases = [case for case in cases if case["test_type"] == "normal"]
+exception_cases = [case for case in cases if case["test_type"] == "exception"]
 
 
 @allure.feature("上半身关节安全控制")
@@ -15,7 +30,7 @@ cases = get_test_data_from_excel(TuyaRobotBase.UPPER_BODY_TEST_DATA_FILE, "set_u
 @pytest.mark.upper_body
 @pytest.mark.manual
 @pytest.mark.danger
-@pytest.mark.parametrize("case", cases, ids=lambda c: c["title"])
+@pytest.mark.parametrize("case", normal_cases, ids=lambda c: c["title"])
 def test_set_upper_joint_enable(device, upper_body, left_arm, right_arm, case):
     title, target = case["title"], case["target"]
     expected = case["expect_data"]
@@ -36,5 +51,24 @@ def test_set_upper_joint_enable(device, upper_body, left_arm, right_arm, case):
     finally:
         with allure.step(f"恢复{target_name}关节使能"):
             device.result_data(target_device.set_upper_joint_enable(case["joint_id"], 1))
+    logger.info(f"✅ 用例【{title}】测试通过")
+    logger.info(f"》》》》》用例【{title}】测试完成《《《《《")
+
+
+@allure.feature("上半身关节安全控制")
+@allure.story("验证关节使能非法参数")
+@pytest.mark.upper_body
+@pytest.mark.parametrize("case", exception_cases, ids=lambda c: c["title"])
+def test_set_upper_joint_enable_exception(upper_body, case):
+    title = case["title"]
+    logger.info(f"》》》》》用例【{title}】开始测试《《《《《")
+    logger.debug(f'test_api:{case["api"]}')
+    logger.debug(f'target:{case["target"]}')
+    logger.debug(f'joint_id:{case["joint_id"]}')
+    logger.debug(f'state:{case["state"]}')
+    with pytest.raises(TuyaRobotDualArmDataException) as exc:
+        with allure.step("调用双臂 set_upper_joint_enable 接口并验证非法参数"):
+            upper_body.set_upper_joint_enable(case["joint_id"], case["state"])
+    logger.info("✅ 异常断言通过，异常信息：%s", exc.value)
     logger.info(f"✅ 用例【{title}】测试通过")
     logger.info(f"》》》》》用例【{title}】测试完成《《《《《")
