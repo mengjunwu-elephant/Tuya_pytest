@@ -52,6 +52,11 @@ def test_send_upper_angle(device, upper_body, left_arm, right_arm, case):
     logger.debug(f"angle:{angle}")
     logger.debug(f"speed:{speed}")
 
+    with allure.step("读取运动前左右臂刷新模式和默认异步模式"):
+        original_modes = device.result_data(upper_body.get_upper_fresh_mode())
+        assert isinstance(original_modes, (list, tuple)) and len(original_modes) == 2
+        original_motion_async = upper_body.get_upper_motion_async()
+        assert isinstance(original_motion_async, bool)
     try:
         with allure.step(f"设置{arm_name}为{mode_name}"):
             mode_result = arm.set_upper_fresh_mode(fresh_mode)
@@ -64,6 +69,19 @@ def test_send_upper_angle(device, upper_body, left_arm, right_arm, case):
             allure.attach(str(fresh_mode), name="期望模式", attachment_type=allure.attachment_type.TEXT)
             allure.attach(str(modes), name="双臂实际模式", attachment_type=allure.attachment_type.TEXT)
             assert modes[arm_index] == fresh_mode, f"{arm_name}模式不一致，期望: {fresh_mode}，实际: {modes[arm_index]}"
+
+        with allure.step("按刷新模式设置默认异步运动并回读断言"):
+            expected_motion_async = fresh_mode == 1
+            if fresh_mode == 1:
+                actual_motion_async = upper_body.set_upper_motion_async(True)
+            else:
+                actual_motion_async = upper_body.set_upper_motion_async(False)
+            current_motion_async = upper_body.get_upper_motion_async()
+            allure.attach(str(expected_motion_async), name="期望默认异步模式", attachment_type=allure.attachment_type.TEXT)
+            allure.attach(str(current_motion_async), name="实际默认异步模式", attachment_type=allure.attachment_type.TEXT)
+            assert isinstance(actual_motion_async, bool)
+            assert actual_motion_async is expected_motion_async
+            assert current_motion_async is expected_motion_async
 
         with allure.step(f'{arm_name}调用 {case["api"]} 接口'):
             result = arm.send_upper_angle(joint_id, angle, speed)
@@ -86,8 +104,13 @@ def test_send_upper_angle(device, upper_body, left_arm, right_arm, case):
             allure.attach(str(actual[arm_side]), name=f"{arm_name}实际角度", attachment_type=allure.attachment_type.TEXT)
             assert_almost_equal(actual[arm_side][joint_id - 1], angle, tol=TuyaRobotBase.angle_tolerance, name=f"{arm_name}J{joint_id}{mode_name}运动")
     finally:
-        with allure.step("当前关节用例结束后双臂回零"):
+        with allure.step("切回双臂插补模式后回零"):
+            assert device.result_data(upper_body.set_upper_fresh_mode(0)) == 1
             device.go_zero()
+        with allure.step("恢复左右臂原始刷新模式和默认异步模式"):
+            assert device.result_data(left_arm.set_upper_fresh_mode(int(original_modes[0]))) == 1
+            assert device.result_data(right_arm.set_upper_fresh_mode(int(original_modes[1]))) == 1
+            assert upper_body.set_upper_motion_async(original_motion_async) is original_motion_async
 
     logger.info(f"✓ 用例【{title}】测试通过")
     logger.info(f">>>>>>>>>>用例【{title}】测试完成<<<<<<<<<<")
@@ -113,6 +136,11 @@ def test_send_upper_angle_dual_arm(device, robot, upper_body, case):
     logger.debug(f"angle:{angle}")
     logger.debug(f"speed:{speed}")
 
+    with allure.step("读取运动前左右臂刷新模式和默认异步模式"):
+        original_modes = device.result_data(upper_body.get_upper_fresh_mode())
+        assert isinstance(original_modes, (list, tuple)) and len(original_modes) == 2
+        original_motion_async = upper_body.get_upper_motion_async()
+        assert isinstance(original_motion_async, bool)
     try:
         with allure.step(f"设置双臂为{mode_name}"):
             mode_result = robot.set_upper_fresh_mode(fresh_mode)
@@ -125,6 +153,19 @@ def test_send_upper_angle_dual_arm(device, robot, upper_body, case):
             allure.attach(str([fresh_mode, fresh_mode]), name="期望模式", attachment_type=allure.attachment_type.TEXT)
             allure.attach(str(modes), name="实际模式", attachment_type=allure.attachment_type.TEXT)
             assert list(modes) == [fresh_mode, fresh_mode]
+
+        with allure.step("按刷新模式设置默认异步运动并回读断言"):
+            expected_motion_async = fresh_mode == 1
+            if fresh_mode == 1:
+                actual_motion_async = upper_body.set_upper_motion_async(True)
+            else:
+                actual_motion_async = upper_body.set_upper_motion_async(False)
+            current_motion_async = upper_body.get_upper_motion_async()
+            allure.attach(str(expected_motion_async), name="期望默认异步模式", attachment_type=allure.attachment_type.TEXT)
+            allure.attach(str(current_motion_async), name="实际默认异步模式", attachment_type=allure.attachment_type.TEXT)
+            assert isinstance(actual_motion_async, bool)
+            assert actual_motion_async is expected_motion_async
+            assert current_motion_async is expected_motion_async
 
         with allure.step(f'调用 robot.{case["api"]} 接口设置双臂同时运动'):
             result = robot.send_upper_angle(joint_id, angle, speed)
@@ -148,8 +189,13 @@ def test_send_upper_angle_dual_arm(device, robot, upper_body, case):
             assert_almost_equal(actual["left"][joint_id - 1], angle, tol=TuyaRobotBase.angle_tolerance, name=f"左臂J{joint_id}{mode_name}运动")
             assert_almost_equal(actual["right"][joint_id - 1], angle, tol=TuyaRobotBase.angle_tolerance, name=f"右臂J{joint_id}{mode_name}运动")
     finally:
-        with allure.step("当前关节用例结束后双臂回零"):
+        with allure.step("切回双臂插补模式后回零"):
+            assert device.result_data(upper_body.set_upper_fresh_mode(0)) == 1
             device.go_zero()
+        with allure.step("恢复左右臂原始刷新模式和默认异步模式"):
+            assert device.result_data(robot.left_arm.set_upper_fresh_mode(int(original_modes[0]))) == 1
+            assert device.result_data(robot.right_arm.set_upper_fresh_mode(int(original_modes[1]))) == 1
+            assert upper_body.set_upper_motion_async(original_motion_async) is original_motion_async
 
     logger.info(f"✓ 用例【{title}】测试通过")
     logger.info(f">>>>>>>>>>用例【{title}】测试完成<<<<<<<<<<")
@@ -201,6 +247,11 @@ def test_send_upper_angle_soft_limit(device, upper_body, left_arm, right_arm, ca
     logger.debug(f"angle:{angle}")
     logger.debug(f"speed:{speed}")
 
+    with allure.step("读取运动前左右臂刷新模式和默认异步模式"):
+        original_modes = device.result_data(upper_body.get_upper_fresh_mode())
+        assert isinstance(original_modes, (list, tuple)) and len(original_modes) == 2
+        original_motion_async = upper_body.get_upper_motion_async()
+        assert isinstance(original_motion_async, bool)
     try:
         with allure.step(f"设置{arm_name}为{mode_name}"):
             mode_result = arm.set_upper_fresh_mode(fresh_mode)
@@ -213,6 +264,19 @@ def test_send_upper_angle_soft_limit(device, upper_body, left_arm, right_arm, ca
             allure.attach(str(fresh_mode), name="期望模式", attachment_type=allure.attachment_type.TEXT)
             allure.attach(str(modes), name="双臂实际模式", attachment_type=allure.attachment_type.TEXT)
             assert modes[arm_index] == fresh_mode, f"{arm_name}模式不一致，期望: {fresh_mode}，实际: {modes[arm_index]}"
+
+        with allure.step("按刷新模式设置默认异步运动并回读断言"):
+            expected_motion_async = fresh_mode == 1
+            if fresh_mode == 1:
+                actual_motion_async = upper_body.set_upper_motion_async(True)
+            else:
+                actual_motion_async = upper_body.set_upper_motion_async(False)
+            current_motion_async = upper_body.get_upper_motion_async()
+            allure.attach(str(expected_motion_async), name="期望默认异步模式", attachment_type=allure.attachment_type.TEXT)
+            allure.attach(str(current_motion_async), name="实际默认异步模式", attachment_type=allure.attachment_type.TEXT)
+            assert isinstance(actual_motion_async, bool)
+            assert actual_motion_async is expected_motion_async
+            assert current_motion_async is expected_motion_async
 
         with allure.step(f'{arm_name}调用 {case["api"]} 接口'):
             result = arm.send_upper_angle(joint_id, angle, speed)
@@ -235,8 +299,13 @@ def test_send_upper_angle_soft_limit(device, upper_body, left_arm, right_arm, ca
             allure.attach(str(actual[arm_side]), name=f"{arm_name}实际角度", attachment_type=allure.attachment_type.TEXT)
             assert_almost_equal(actual[arm_side][joint_id - 1], angle, tol=TuyaRobotBase.angle_tolerance, name=f"{arm_name}J{joint_id}{mode_name}软件限位运动")
     finally:
-        with allure.step("当前软件限位关节用例结束后双臂回零"):
+        with allure.step("切回双臂插补模式后回零"):
+            assert device.result_data(upper_body.set_upper_fresh_mode(0)) == 1
             device.go_zero()
+        with allure.step("恢复左右臂原始刷新模式和默认异步模式"):
+            assert device.result_data(left_arm.set_upper_fresh_mode(int(original_modes[0]))) == 1
+            assert device.result_data(right_arm.set_upper_fresh_mode(int(original_modes[1]))) == 1
+            assert upper_body.set_upper_motion_async(original_motion_async) is original_motion_async
 
     logger.info(f"✓ 用例【{title}】测试通过")
     logger.info(f">>>>>>>>>>用例【{title}】测试完成<<<<<<<<<<")

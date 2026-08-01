@@ -9,45 +9,38 @@ from settings import TuyaRobotBase
 cases = get_test_data_from_excel(
     TuyaRobotBase.UPPER_BODY_TEST_DATA_FILE,
     "get_upper_joints_max_angle",
-    required_columns=('title', 'api', 'target', 'test_type'),
+    required_columns=("title", "api", "test_type"),
 )
+normal_cases = [case for case in cases if case["test_type"] == "normal"]
 
 
 @allure.feature("上半身状态与参数查询")
-@allure.story("查询单臂和双臂关节最大角度")
+@allure.story("查询上半身关节最大角度")
 @pytest.mark.upper_body
-@pytest.mark.parametrize("case", cases, ids=lambda c: c["title"])
-def test_get_upper_joints_max_angle(device, upper_body, left_arm, right_arm, case):
+@pytest.mark.parametrize("case", normal_cases, ids=lambda c: c["title"])
+def test_get_upper_joints_max_angle(device, upper_body, case):
     title = case["title"]
-    target = case["target"]
-    targets = {
-        "left": (left_arm, "左臂"),
-        "right": (right_arm, "右臂"),
-        "both": (upper_body, "双臂"),
-    }
-    target_device, target_name = targets[target]
+    expected = [
+        TuyaRobotBase.UPPER_BODY_JOINT_SOFT_LIMITS[joint_id][1]
+        for joint_id in range(1, 8)
+    ]
 
-    logger.info(f"》》》》》用例【{title}】开始测试《《《《《")
+    logger.info(f">>>>>>>>>>用例【{title}】开始测试<<<<<<<<<<")
     logger.debug(f'test_api:{case["api"]}')
-    logger.debug(f"target:{target}")
 
-    with allure.step(f"调用{target_name} get_upper_joints_max_angle 接口"):
-        result = target_device.get_upper_joints_max_angle()
-        actual = device.result_data(result)
+    with allure.step("调用 get_upper_joints_max_angle 接口"):
+        actual = device.result_data(upper_body.get_upper_joints_max_angle())
         logger.debug(f"接口 get_upper_joints_max_angle 返回：{actual}")
 
-    with allure.step(f"断言{target_name}关节最大角度返回结构"):
-        if target == "both":
-            assert isinstance(actual, dict), f"双臂返回类型错误：{actual!r}"
-            assert set(actual) >= {"left", "right"}, f"双臂返回缺少 left/right：{actual!r}"
-            for arm_data in (actual["left"], actual["right"]):
-                assert isinstance(arm_data, (list, tuple)), f"单侧数据类型错误：{arm_data!r}"
-                assert len(arm_data) == 8, f"单侧数据长度错误：{arm_data!r}"
-                assert all(isinstance(value, (int, float)) and not isinstance(value, bool) for value in arm_data)
-        else:
-            assert isinstance(actual, (list, tuple)), f"单臂返回类型错误：{actual!r}"
-            assert len(actual) == 8, f"单臂返回长度错误：{actual!r}"
-            assert all(isinstance(value, (int, float)) and not isinstance(value, bool) for value in actual)
+    with allure.step("断言返回结构为8关节列表"):
+        assert isinstance(actual, (list, tuple)), f"返回类型错误：{actual!r}"
+        assert len(actual) == 8, f"返回长度错误，期望8，实际：{len(actual)}"
+        assert all(isinstance(value, (int, float)) and not isinstance(value, bool) for value in actual)
 
-    logger.info(f"✅ 用例【{title}】测试通过")
-    logger.info(f"》》》》》用例【{title}】测试完成《《《《《")
+    with allure.step("断言J1到J7等于软件上限"):
+        allure.attach(str(expected), name="期望J1到J7软件上限", attachment_type=allure.attachment_type.TEXT)
+        allure.attach(str(list(actual[:7])), name="实际J1到J7最大角度", attachment_type=allure.attachment_type.TEXT)
+        assert list(actual[:7]) == expected
+
+    logger.info(f"✓ 用例【{title}】测试通过")
+    logger.info(f">>>>>>>>>>用例【{title}】测试完成<<<<<<<<<<")

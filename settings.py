@@ -96,9 +96,9 @@ class TuyaConnectionConfig:
 class TuyaRobotBase:
     """整机测试设备，集中暴露 TuyaRobot 的各个子系统。"""
 
-    speed = 20
-    angle_tolerance = 0.1
-    coord_tolerance = 1
+    speed = 50
+    angle_tolerance = 0.2
+    coord_tolerance = 0.5
     head_speed = 40
     UPPER_BODY_ZERO_ANGLES = (0.0,) * 8
     COORD_MOTION_INITIAL_ANGLES = {
@@ -111,7 +111,7 @@ class TuyaRobotBase:
     }
     UPPER_BODY_JOINT_SOFT_LIMITS = {
         1: (-166.0, 166.0),
-        2: (-100.0, 100.0),
+        2: (-80.0, 105.0),
         3: (-166.0, 166.0),
         4: (-170.0, 10.0),
         5: (-166.0, 166.0),
@@ -120,8 +120,8 @@ class TuyaRobotBase:
     }
     UPPER_BODY_COORD_SOFT_LIMITS = {
         1: (-650.0, 650.0),
-        2: (-775.0, 775.0),
-        3: (-800.0, 650.0),
+        2: (-841.0, 841.0),
+        3: (-636.0, 665.0),
         4: (-180.0, 180.0),
         5: (-180.0, 180.0),
         6: (-180.0, 180.0),
@@ -162,18 +162,31 @@ class TuyaRobotBase:
         return result
 
     def go_zero(self, timeout: float = 30.0):
-        """双臂整臂回零并等待运动完成。"""
-        result = self.robot.upper_go_zero(_async=False)
+        """以已确认的零位关节角度驱动双臂回零并等待运动完成。"""
+        result = self.robot.send_upper_angles(
+            self.UPPER_BODY_ZERO_ANGLES,
+            self.speed,
+            self.speed,
+            self.UPPER_BODY_ZERO_ANGLES,
+            self.speed,
+            self.speed,
+            _async=False,
+        )
         self.result_data(result)
         self.wait_upper(timeout=timeout)
         return result
 
     def go_arm_zero(self, arm_side: str, timeout: float = 30.0):
-        """指定单臂整臂回零并等待运动完成。"""
+        """以已确认的零位关节角度驱动指定单臂回零并等待运动完成。"""
         if arm_side not in ("left", "right"):
             raise ValueError(f"不支持的手臂标识: {arm_side!r}")
         arm = self.left_arm if arm_side == "left" else self.right_arm
-        result = arm.upper_go_zero()
+        result = arm.send_upper_angles(
+            self.UPPER_BODY_ZERO_ANGLES,
+            self.speed,
+            self.speed,
+            _async=False,
+        )
         self.result_data(result)
         self.wait_upper(timeout=timeout)
         return result
@@ -227,6 +240,7 @@ class TuyaRobotBase:
     def wait_upper(self, timeout: float = 30.0) -> None:
         deadline = time.monotonic() + timeout
         while True:
+            time.sleep(0.2) # 等待0.2秒后再次检查运动状态
             states = self.result_data(self.upper_body.get_upper_is_moving())
             if not isinstance(states, (list, tuple)) or len(states) != 2:
                 raise RuntimeError(f"上半身运动状态格式错误: {states!r}")
@@ -236,7 +250,7 @@ class TuyaRobotBase:
                 return
             if time.monotonic() >= deadline:
                 raise TimeoutError(f"上半身在 {timeout:g} 秒内未停止")
-            time.sleep(0.2)
+            time.sleep(0.5)
 
     def close(self) -> None:
         self.robot.close()

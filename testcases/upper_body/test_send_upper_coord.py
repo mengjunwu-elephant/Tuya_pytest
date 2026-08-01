@@ -50,6 +50,11 @@ def test_send_upper_coord(device, robot, upper_body, case):
     logger.debug(f"value:{value}")
     logger.debug(f"speed:{speed}")
 
+    with allure.step("读取运动前双臂刷新模式和默认异步状态"):
+        original_modes = device.result_data(upper_body.get_upper_fresh_mode())
+        assert isinstance(original_modes, (list, tuple)) and len(original_modes) == 2
+        original_motion_async = upper_body.get_upper_motion_async()
+        assert isinstance(original_motion_async, bool)
     try:
         with allure.step("双臂移动到坐标运动初始关节姿态"):
             initial_actual = device.move_to_coord_initial_pose()
@@ -76,6 +81,11 @@ def test_send_upper_coord(device, robot, upper_body, case):
             allure.attach(str(modes), name="双臂实际模式", attachment_type=allure.attachment_type.TEXT)
             assert modes[arm_index] == fresh_mode, f"{arm_name}模式不一致，期望: {fresh_mode}，实际: {modes[arm_index]}"
 
+        with allure.step(f"设置{mode_name}对应的默认异步状态"):
+            expected_motion_async = fresh_mode == 1
+            actual_motion_async = upper_body.set_upper_motion_async(expected_motion_async)
+            assert actual_motion_async is expected_motion_async
+
         with allure.step(f"{arm_name}调用 {case['api']} 接口"):
             result = arm.send_upper_coord(coord_id, value, speed)
             logger.debug(f"接口返回：{result}")
@@ -101,8 +111,15 @@ def test_send_upper_coord(device, robot, upper_body, case):
                 name=f"{arm_name}坐标轴{coord_id}{mode_name}运动",
             )
     finally:
+        with allure.step("回零前恢复双臂插补模式和默认同步状态"):
+            assert device.result_data(upper_body.set_upper_fresh_mode(0)) == 1
+            assert upper_body.set_upper_motion_async(False) is False
         with allure.step("当前坐标轴用例结束后双臂回零"):
             device.go_zero()
+        with allure.step("恢复运动前双臂刷新模式和默认异步状态"):
+            assert device.result_data(robot.left_arm.set_upper_fresh_mode(int(original_modes[0]))) == 1
+            assert device.result_data(robot.right_arm.set_upper_fresh_mode(int(original_modes[1]))) == 1
+            assert upper_body.set_upper_motion_async(original_motion_async) is original_motion_async
 
     logger.info(f"✓ 用例【{title}】测试通过")
     logger.info(f">>>>>>>>>>用例【{title}】测试完成<<<<<<<<<<")

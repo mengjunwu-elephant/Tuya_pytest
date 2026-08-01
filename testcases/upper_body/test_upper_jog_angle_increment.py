@@ -4,6 +4,7 @@ import pytest
 
 from common1 import assert_almost_equal, logger
 from common1.test_data_handler import get_test_data_from_excel
+from pytuyarobot.command_result import CommandResult
 from pytuyarobot.validation import (
     TuyaRobotDualArmDataException,
     TuyaRobotSingleArmDataException,
@@ -13,12 +14,13 @@ from settings import TuyaRobotBase
 cases = get_test_data_from_excel(
     TuyaRobotBase.UPPER_BODY_TEST_DATA_FILE,
     "upper_jog_angle_increment",
-    required_columns=("title", "api", "target", "joint_id", "increment", "speed", "range_limit", "expect_data", "test_type"),
+    required_columns=("title", "api", "target", "joint_id", "increment", "speed", "range_limit", "expect_data", "message", "test_type"),
 )
 normal_cases = [case for case in cases if case["test_type"] == "normal"]
 range_exception_cases = [case for case in cases if case["test_type"] == "range_exception"]
 exception_cases = [case for case in cases if case["test_type"] == "exception" and case["joint_id"] != 0]
 zero_joint_cases = [case for case in cases if case["test_type"] == "exception" and case["joint_id"] == 0]
+unsupported_cases = [case for case in cases if case["test_type"] == "unsupported"]
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -125,6 +127,61 @@ def test_upper_jog_angle_increment_range_exception(device, upper_body, left_arm,
 
 
 @allure.feature("关节角度步进运动")
+@allure.story("刷新模式不支持关节步进")
+@pytest.mark.upper_body
+@pytest.mark.motion
+@pytest.mark.manual
+@pytest.mark.danger
+@pytest.mark.parametrize("case", unsupported_cases, ids=lambda c: c["title"])
+def test_upper_jog_angle_increment_refresh_mode_unsupported(device, upper_body, left_arm, right_arm, case):
+    title = case["title"]
+    target = str(case["target"]).lower()
+    target_name = {"left": "左臂", "right": "右臂", "both": "双臂"}[target]
+    target_device = {"left": left_arm, "right": right_arm, "both": upper_body}[target]
+    expected_message = str(case["message"])
+
+    logger.info(f">>>>>>>>>>用例【{title}】开始测试<<<<<<<<<<")
+    logger.debug(f'test_api:{case["api"]}')
+    logger.debug(f"target:{target}")
+    logger.debug(f'joint_id:{case["joint_id"]}')
+    logger.debug(f'increment:{case["increment"]}')
+    logger.debug(f'speed:{case["speed"]}')
+
+    with allure.step("先设置双臂插补模式并回到零位"):
+        assert device.result_data(upper_body.set_upper_fresh_mode(0)) == 1
+        device.go_zero()
+    try:
+        with allure.step(f"设置{target_name}为刷新模式"):
+            assert device.result_data(target_device.set_upper_fresh_mode(1)) == 1
+            actual_modes = device.result_data(upper_body.get_upper_fresh_mode())
+            assert isinstance(actual_modes, (list, tuple)) and len(actual_modes) == 2
+            assert actual_modes[0] == 1, f"左臂刷新模式回读不一致，实际: {actual_modes}"
+        with allure.step("刷新模式下显式启用默认异步状态"):
+            assert upper_body.set_upper_motion_async(True) is True
+        with allure.step(f"刷新模式下调用{target_name} upper_jog_angle_increment 接口"):
+            result = target_device.upper_jog_angle_increment(
+                case["joint_id"], case["increment"], case["speed"], _async=True
+            )
+            logger.debug(f"接口 upper_jog_angle_increment 返回：{result}")
+        with allure.step("断言刷新模式不支持关节步进"):
+            assert isinstance(result, CommandResult), f"刷新模式步进应返回 CommandResult，实际: {result!r}"
+            allure.attach(expected_message, name="期望错误信息", attachment_type=allure.attachment_type.TEXT)
+            allure.attach(str(result.message), name="实际错误信息", attachment_type=allure.attachment_type.TEXT)
+            assert result.ok is False
+            assert expected_message in (result.message or ""), (
+                f"错误信息不一致，期望包含: {expected_message}，实际: {result.message}"
+            )
+    finally:
+        with allure.step("恢复双臂插补模式并回零"):
+            assert device.result_data(upper_body.set_upper_fresh_mode(0)) == 1
+            assert upper_body.set_upper_motion_async(False) is False
+            device.go_zero()
+
+    logger.info(f"✓ 用例【{title}】测试通过")
+    logger.info(f">>>>>>>>>>用例【{title}】测试完成<<<<<<<<<<")
+
+
+@allure.feature("关节角度步进运动")
 @allure.story("非法参数")
 @pytest.mark.upper_body
 @pytest.mark.parametrize("case", exception_cases, ids=lambda c: c["title"])
@@ -154,11 +211,12 @@ def test_upper_jog_angle_increment_exception(upper_body, left_arm, right_arm, ca
 @pytest.mark.upper_body
 @pytest.mark.parametrize("case", zero_joint_cases, ids=lambda c: c["title"])
 def test_upper_jog_angle_increment_joint_zero_exception(upper_body, left_arm, right_arm, case):
-    """记录当前 SDK 将 joint_id=0 统一归类为双臂参数异常的实际契约。"""
+    """按当前 SDK 契约断言 joint_id=0：单臂 SingleArm，双臂 DualArm。"""
     title = case["title"]
     target = str(case["target"]).lower()
     target_name = {"left": "左臂", "right": "右臂", "both": "双臂"}[target]
     target_device = {"left": left_arm, "right": right_arm, "both": upper_body}[target]
+    expected_exception = TuyaRobotDualArmDataException if target == "both" else TuyaRobotSingleArmDataException
 
     logger.info(f">>>>>>>>>>用例【{title}】开始测试<<<<<<<<<<")
     logger.debug(f'test_api:{case["api"]}')
@@ -166,7 +224,7 @@ def test_upper_jog_angle_increment_joint_zero_exception(upper_body, left_arm, ri
     logger.debug(f'joint_id:{case["joint_id"]}')
     logger.debug(f'increment:{case["increment"]}')
     logger.debug(f'speed:{case["speed"]}')
-    with pytest.raises(TuyaRobotDualArmDataException) as exc:
+    with pytest.raises(expected_exception) as exc:
         with allure.step(f"调用{target_name} upper_jog_angle_increment 接口并验证 joint_id=0"):
             target_device.upper_jog_angle_increment(case["joint_id"], case["increment"], case["speed"])
     logger.info("✓ joint_id=0 异常断言通过，异常信息：%s", exc.value)

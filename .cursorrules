@@ -59,17 +59,17 @@ alwaysApply: true
 - 除上述上半身公共前置上电外，接口专属校准、初始化和恢复逻辑留在对应测试文件，不加入 session fixture。
 - 运动方案未得到用户明确确认前，不得创建测试文件或修改 Excel。
 - URDF、DH 和单轴限位不能单独证明双臂无自碰；未确认的避让姿态、完整角度和绝对坐标必须留空并显式跳过，禁止猜值或补零。
-- Jog 使用 `0` 负向、`1` 正向；`upper_jog_angle` 分别测试左臂、右臂和双臂，每条运动用例前后均调用 `device.go_zero()`；Jog 到软件限位自行停止并完成角度回读后直接回零，不额外调用 `upper_stop()`。软限位 Jog 启用 `motion + manual + danger`。刷新模式不支持 Jog，只验证一条返回 `-1`，结束后恢复插补模式并回零。
+- Jog 使用 `0` 负向、`1` 正向；`upper_jog_angle` 分别测试左臂、右臂和双臂，每条运动用例前后均调用 `device.go_zero()`；Jog 到软件限位自行停止并完成角度回读后直接回零，不额外调用 `upper_stop()`。软限位 Jog 启用 `motion + manual + danger`。刷新模式不支持 Jog；`upper_jog_angle`、`upper_jog_coord`、`upper_jog_angle_increment`、`upper_jog_coord_increment` 各验证一条返回失败 `CommandResult`（提示切换插补模式），结束后恢复插补模式并回零。
 - `upper_jog_angle_increment` 覆盖左臂、右臂和双臂 J1～J7；正常用例从零位单关节步进 30°，J4 使用 `-30°`，回读后回零。超限增量按 `|负限位| + |正限位| + 1°` 生成正负值并通过公开接口正常下发，启用 `motion + manual + danger`，不为 SDK 当前缺少幅度校验增加用例内规避逻辑。
-- `upper_jog_coord` 单臂正常用例覆盖六轴正负向，双臂正常用例只覆盖 Z 轴正负向；单臂只移动目标臂到坐标初始点位，持续 Jog 到状态码 `32`“坐标无解”并读取停止坐标，最后回零，不断言坐标软件限位。
+- `upper_jog_coord` 单臂正常用例覆盖六轴正负向，双臂正常用例只覆盖 Z 轴正负向；单臂只移动目标臂到坐标初始点位。结束态以 Excel 为准：业务返回 `0` 的用例只断言返回值；失败 `CommandResult` 按实机分别断言 `32`“坐标无解”或 `33`“直线运动无相邻解”，后者读取停止坐标后回零；不断言坐标软件限位。
 - `upper_jog_coord_increment` 单臂正常用例覆盖六轴步进 30 mm/30°，双臂正常用例只覆盖 Z 轴步进 30 mm；超限值按完整坐标行程再加 1 生成正负值并正常下发，启用 `motion + manual + danger`。单臂只移动目标臂到初始点位，所有运动用例结束后回零。
 - 已确认的零位角度、关节/坐标软件限位等跨用例运动常量统一定义为 `TuyaRobotBase` 类属性，测试文件只引用，不重复硬编码。
 - 坐标运动初始关节姿态统一使用 `TuyaRobotBase.COORD_MOTION_INITIAL_ANGLES`；双臂坐标运动调用 `device.move_to_coord_initial_pose()`，单臂坐标 Jog/步进调用 `device.move_to_coord_initial_pose(arm_side)` 只移动目标臂，并等待到位。
 - 坐标运动初始坐标使用 `TuyaRobotBase.COORD_MOTION_INITIAL_COORDS`，初始姿态方法负责回读校验。`send_upper_coord` 仅保留左右单臂用例，分别覆盖刷新模式 `1`、插补模式 `0` 下 X/Y/Z `±10 mm`、RX/RY/RZ `±10°`；每条用例先进入初始姿态，再设置并回读模式，最后发送坐标，并在 `finally` 中调用 `device.go_zero()`。模块结束固定恢复双臂插补模式 `0`。
-- `TuyaRobotBase.speed` 为公共恢复/回零速度，当前固定为 `20`；整臂回零等公共恢复动作统一引用该值。
-- 双臂整臂回零统一调用 `TuyaRobotBase.go_zero()`；设置参数后的公共默认恢复动作也封装为 `TuyaRobotBase` 方法，测试文件只编排恢复时机，不重复实现恢复细节。
+- `TuyaRobotBase.speed` 为公共恢复/回零速度；整臂回零等公共恢复动作统一引用该类属性，测试文件不得硬编码速度值。
+- 双臂整臂回零统一调用 `TuyaRobotBase.go_zero()`；该封装以已确认的零位关节角度通过 `send_upper_angles` 下发，不调用 SDK `upper_go_zero()`。设置参数后的公共默认恢复动作也封装为 `TuyaRobotBase` 方法，测试文件只编排恢复时机，不重复实现恢复细节。
 - `TuyaRobotBase.angle_tolerance` 和 `TuyaRobotBase.coord_tolerance` 分别为角度、坐标回读容差，当前均为 `0.1`；Excel 的 `expect_data` 只用于断言被测接口返回值。
-- `send_upper_angle` 显式覆盖刷新模式 `1` 和插补模式 `0`：左右单臂分别覆盖 J1～J7，双臂通过 `robot.send_upper_angle` 覆盖 J1～J7 正负 10°，单臂软件限位覆盖两种模式但双臂不执行软件限位。每条关节用例在 `finally` 中调用 `device.go_zero()`，模块结束固定恢复双臂插补模式 `0`。
+- 所有切换到刷新模式 `1` 后再下发运动的用例，必须在模式回读后显式调用并断言 `set_upper_motion_async(True)`；插补模式 `0` 显式设为 `False`，清理时恢复原默认异步状态或模块约定的插补同步状态。`send_upper_angle` 显式覆盖刷新模式 `1` 和插补模式 `0`：左右单臂分别覆盖 J1～J7，双臂通过 `robot.send_upper_angle` 覆盖 J1～J7 正负 10°，单臂软件限位覆盖两种模式但双臂不执行软件限位。每条关节用例在 `finally` 中调用 `device.go_zero()`，模块结束固定恢复双臂插补模式 `0`。
 - 合法速度至少覆盖 1、10、20、100，非法速度覆盖 0、101；速度 100 不得用于未确认的大范围边界运动。
 - 文档契约和 SDK 实际行为不一致时分别记录，并使用当前 SDK 的具体异常类型断言。
 
@@ -77,7 +77,7 @@ alwaysApply: true
 
 - 修改测试后运行 `python -m compileall -q testcases`。
 - 修改测试、Excel、fixture 或连接配置后运行 `pytest testcases --collect-only -q`。
-- 当前基线为 119 个测试文件、142 个测试函数、824 条参数化测试；有意修改 Excel 或收集范围时同步更新规则与技能中的基线。
+- 当前基线为 120 个测试文件、157 个测试函数、1020 条参数化测试；有意修改 Excel 或收集范围时同步更新规则与技能中的基线。
 - 修改连接或会话参数后运行 `pytest --help`，确认 TuyaRobot CLI 仍可见。
 - 不在常规验证中运行真实硬件测试。
 

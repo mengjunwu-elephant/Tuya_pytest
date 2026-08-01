@@ -191,6 +191,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "angle_groups": constants.ANGLE_GROUPS,
                     "coord_groups": constants.COORD_GROUPS,
                     "joint_soft_limits": constants.JOINT_SOFT_LIMITS,
+                    "coord_soft_limits": constants.COORD_SOFT_LIMITS,
                 },
                 ensure_ascii=False,
                 indent=2,

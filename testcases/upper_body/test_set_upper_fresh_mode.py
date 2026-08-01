@@ -39,6 +39,9 @@ def test_set_upper_fresh_mode(device, upper_body, left_arm, right_arm, case):
         original = device.result_data(upper_body.get_upper_fresh_mode())
         assert isinstance(original, (list, tuple)) and len(original) == 2
         original_left, original_right = original
+    with allure.step("读取原始默认异步模式"):
+        original_motion_async = upper_body.get_upper_motion_async()
+        assert isinstance(original_motion_async, bool)
     try:
         with allure.step(f"调用{target_name} set_upper_fresh_mode 接口"):
             actual = device.result_data(target_device.set_upper_fresh_mode(case["state"]))
@@ -54,10 +57,19 @@ def test_set_upper_fresh_mode(device, upper_body, left_arm, right_arm, case):
                 assert list(current) == [original_left, case["state"]]
             else:
                 assert list(current) == [case["state"], case["state"]]
+        if target == "both":
+            with allure.step("回读并断言双臂刷新模式同步默认异步模式"):
+                current_motion_async = upper_body.get_upper_motion_async()
+                allure.attach(str(bool(case["state"])), name="期望默认异步模式", attachment_type=allure.attachment_type.TEXT)
+                allure.attach(str(current_motion_async), name="实际默认异步模式", attachment_type=allure.attachment_type.TEXT)
+                assert isinstance(current_motion_async, bool)
+                assert current_motion_async is bool(case["state"])
     finally:
         with allure.step("分别恢复左右臂原始刷新模式"):
             device.result_data(left_arm.set_upper_fresh_mode(original_left))
             device.result_data(right_arm.set_upper_fresh_mode(original_right))
+        with allure.step("恢复原始默认异步模式"):
+            upper_body.set_upper_motion_async(original_motion_async)
 
     logger.info(f"✅ 用例【{title}】测试通过")
     logger.info(f"》》》》》用例【{title}】测试完成《《《《《")

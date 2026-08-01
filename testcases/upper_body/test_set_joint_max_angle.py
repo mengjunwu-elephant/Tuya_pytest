@@ -4,73 +4,88 @@ import pytest
 
 from common1 import logger
 from common1.test_data_handler import get_test_data_from_excel
+from pytuyarobot.validation import TuyaRobotDualArmDataException
 from settings import TuyaRobotBase
 
 cases = get_test_data_from_excel(
     TuyaRobotBase.UPPER_BODY_TEST_DATA_FILE,
     "set_joint_max_angle",
-    required_columns=('title', 'api', 'target', 'joint_id', 'degree', 'expect_data', 'test_type'),
+    required_columns=("title", "api", "joint_id", "degree", "expect_data", "test_type"),
 )
 normal_cases = [case for case in cases if case["test_type"] == "normal"]
 exception_cases = [case for case in cases if case["test_type"] == "exception"]
 
 
+@pytest.fixture(scope="module", autouse=True)
+def restore_soft_joint_limits(device, upper_body):
+    yield
+    with allure.step("关节最大角度设置全部用例结束后恢复J1到J7软件限位"):
+        for joint_id, (soft_min, soft_max) in TuyaRobotBase.UPPER_BODY_JOINT_SOFT_LIMITS.items():
+            assert device.result_data(upper_body.set_joint_min_angle(joint_id, soft_min)) == 1
+            assert device.result_data(upper_body.set_joint_max_angle(joint_id, soft_max)) == 1
+
+
 @allure.feature("上半身参数设置")
-@allure.story("设置单臂和双臂关节最大角度")
+@allure.story("设置上半身关节最大角度")
 @pytest.mark.upper_body
 @pytest.mark.danger
+@pytest.mark.reset
 @pytest.mark.parametrize("case", normal_cases, ids=lambda c: c["title"])
-def test_set_joint_max_angle(device, upper_body, left_arm, right_arm, case):
+def test_set_joint_max_angle(device, upper_body, case):
     title = case["title"]
-    expected = case["expect_data"]
-    target = case["target"]
-    target_device, target_name = {
-        "left": (left_arm, "左臂"),
-        "right": (right_arm, "右臂"),
-        "both": (upper_body, "双臂"),
-    }[target]
-    setting_value = case["degree"]
-    logger.info(f"》》》》》用例【{title}】开始测试《《《《《")
-    logger.debug(f'test_api:{case["api"]}')
-    logger.debug(f"target:{target}")
-    logger.debug(f'joint_id:{case["joint_id"]}')
-    logger.debug(f'degree:{case["degree"]}')
+    joint_id = int(case["joint_id"])
+    degree = float(case["degree"])
+    expected = int(case["expect_data"])
+    soft_min, soft_max = TuyaRobotBase.UPPER_BODY_JOINT_SOFT_LIMITS[joint_id]
 
-    with allure.step("读取左右臂原始关节最大角度"):
-        original_left_data = device.result_data(left_arm.get_upper_joints_max_angle())
-        original_right_data = device.result_data(right_arm.get_upper_joints_max_angle())
-        original_left = original_left_data[case["joint_id"] - 1]
-        original_right = original_right_data[case["joint_id"] - 1]
+    logger.info(f">>>>>>>>>>用例【{title}】开始测试<<<<<<<<<<")
+    logger.debug(f'test_api:{case["api"]}')
+    logger.debug(f"joint_id:{joint_id}")
+    logger.debug(f"degree:{degree}")
+
     try:
-        with allure.step(f"调用{target_name} set_joint_max_angle 接口"):
-            if target == "both":
-                result = upper_body.set_joint_max_angle(case["joint_id"], case["degree"])
-            else:
-                result = target_device.set_joint_max_angle(case["joint_id"], case["degree"])
-            actual = device.result_data(result)
+        with allure.step("调用 set_joint_max_angle 接口"):
+            actual = device.result_data(upper_body.set_joint_max_angle(joint_id, degree))
             logger.debug(f"接口 set_joint_max_angle 返回：{actual}")
+
         with allure.step("断言设置接口业务返回值"):
             allure.attach(str(expected), name="期望业务返回值", attachment_type=allure.attachment_type.TEXT)
             allure.attach(str(actual), name="实际业务返回值", attachment_type=allure.attachment_type.TEXT)
             assert actual == expected
-        with allure.step("分别回读左右臂关节最大角度"):
-            current_left_data = device.result_data(left_arm.get_upper_joints_max_angle())
-            current_right_data = device.result_data(right_arm.get_upper_joints_max_angle())
-            current_left = current_left_data[case["joint_id"] - 1]
-            current_right = current_right_data[case["joint_id"] - 1]
-            if target == "left":
-                assert current_left == setting_value
-                assert current_right == original_right
-            elif target == "right":
-                assert current_left == original_left
-                assert current_right == setting_value
-            else:
-                assert current_left == setting_value
-                assert current_right == setting_value
-    finally:
-        with allure.step("分别恢复左右臂原始关节最大角度"):
-            device.result_data(left_arm.set_joint_max_angle(case["joint_id"], original_left))
-            device.result_data(right_arm.set_joint_max_angle(case["joint_id"], original_right))
 
-    logger.info(f"✅ 用例【{title}】测试通过")
-    logger.info(f"》》》》》用例【{title}】测试完成《《《《《")
+        with allure.step("回读并断言目标关节最大角度"):
+            limits = device.result_data(upper_body.get_upper_joints_max_angle())
+            assert isinstance(limits, (list, tuple)) and len(limits) == 8
+            actual_degree = limits[joint_id - 1]
+            allure.attach(str(degree), name="期望最大角度", attachment_type=allure.attachment_type.TEXT)
+            allure.attach(str(actual_degree), name="实际最大角度", attachment_type=allure.attachment_type.TEXT)
+            assert actual_degree == degree
+    finally:
+        with allure.step("恢复该关节为软件上下限"):
+            assert device.result_data(upper_body.set_joint_min_angle(joint_id, soft_min)) == 1
+            assert device.result_data(upper_body.set_joint_max_angle(joint_id, soft_max)) == 1
+
+    logger.info(f"✓ 用例【{title}】测试通过")
+    logger.info(f">>>>>>>>>>用例【{title}】测试完成<<<<<<<<<<")
+
+
+@allure.feature("上半身参数设置")
+@allure.story("验证关节最大角度非法参数")
+@pytest.mark.upper_body
+@pytest.mark.parametrize("case", exception_cases, ids=lambda c: c["title"])
+def test_set_joint_max_angle_exception(upper_body, case):
+    title = case["title"]
+    joint_id = int(case["joint_id"])
+    degree = float(case["degree"])
+
+    logger.info(f">>>>>>>>>>用例【{title}】开始测试<<<<<<<<<<")
+    logger.debug(f'test_api:{case["api"]}')
+    logger.debug(f"joint_id:{joint_id}")
+    logger.debug(f"degree:{degree}")
+
+    with pytest.raises(TuyaRobotDualArmDataException) as exc:
+        with allure.step("调用 set_joint_max_angle 接口并验证非法参数"):
+            upper_body.set_joint_max_angle(joint_id, degree)
+    logger.info("✓ 异常断言通过，异常信息：%s", exc.value)
+    logger.info(f"✓ 用例【{title}】测试通过")
+    logger.info(f">>>>>>>>>>用例【{title}】测试完成<<<<<<<<<<")
