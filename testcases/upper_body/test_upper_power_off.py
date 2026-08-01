@@ -40,10 +40,11 @@ def test_upper_power_off(device, upper_body, left_arm, right_arm, case):
             logger.debug(f"接口 upper_power_off 返回：{actual}")
 
         with allure.step("断言下电接口业务返回值"):
-            allure.attach(str(expected), name="期望业务返回值", attachment_type=allure.attachment_type.TEXT)
+            allure.attach(str([expected, expected]), name="期望业务返回值", attachment_type=allure.attachment_type.TEXT)
             allure.attach(str(actual), name="实际业务返回值", attachment_type=allure.attachment_type.TEXT)
-            assert isinstance(actual, int) and not isinstance(actual, bool), f"双臂下电返回类型错误：{actual!r}"
-            assert actual == expected
+            assert isinstance(actual, (list, tuple)), f"双臂下电返回类型错误：{actual!r}"
+            assert len(actual) == 2, f"双臂下电返回长度错误：{actual!r}"
+            assert list(actual) == [expected, expected]
 
         with allure.step("等待并验证双臂下电状态"):
             deadline = time.monotonic() + 30

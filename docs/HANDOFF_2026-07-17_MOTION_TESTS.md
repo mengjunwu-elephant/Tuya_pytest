@@ -78,7 +78,7 @@
 - 两个接口均使用 3 组已由用户和开发确认的左右臂目标，分别按低速 `10`、中速 `50`、高速 `100` 执行。
 - 每组目标覆盖左臂、右臂和双臂同时运动，并分别覆盖插补模式 `0` 与刷新模式 `1`；每个接口均为 18 条正常用例。
 - `send_upper_angles` 的夹爪速度固定为 `0`，对应用户提供调用中省略夹爪速度时的 SDK 默认值。
-- 已确认坐标包含左臂 `Z=-464.0` 和右臂 `Z=-511.5`；当前 SDK 坐标范围为 X `[-650, 650]`、Y `[-775, 775]`、Z `[-800, 650]`、RX/RY/RZ `[-180, 180]`。
+- 已确认坐标包含左臂 `Z=-464.0` 和右臂 `Z=-511.5`；当前 SDK 坐标范围为 X `[-650, 650]`、Y `[-841, 841]`、Z `[-636, 665]`、RX/RY/RZ `[-180, 180]`。
 - `send_upper_coords` 的 Z 轴下限异常值已由过时的 `-351` 修正为 SDK 范围外 1 的 `-801`。
 - `send_upper_coords` 每条正常用例结束后均在 `finally` 中调用 `device.go_zero()`，不再恢复到运动前坐标，确保成功或失败时最终回到双臂零位。
 
@@ -88,9 +88,9 @@
 - 每条运动用例先设置双臂插补模式 `0` 并调用 `device.go_zero()`；Jog 以 `_async=True` 下发，随后用带超时的状态查询等待停止。
 - Jog 到软件限位后自行停止；完成角度回读后，每条用例的 `finally` 直接调用 `device.go_zero()`，不额外调用 `upper_stop()`，避免停止状态帧干扰后续回零闭环。
 - 软件限位运动统一使用低速 `10`，并保留 `motion + manual + danger` 门控。
-- 刷新模式 `1` 不支持 Jog，单独保留 1 条左臂 J1 正向调用返回 `-1` 的验证；结束后恢复插补模式并回零。
+- 刷新模式 `1` 不支持连续 Jog 与步进 Jog；四个 Jog 接口各保留 1 条左臂调用验证：返回失败 `CommandResult`（提示切换插补模式）；结束后恢复插补模式并回零。
 - 非法参数共 15 条：速度 `0、101`、关节 ID `0`、方向 `-1、2` 分别覆盖左臂、右臂和双臂，已通过 SDK validation 静态验证。
-- 当前 SDK 的 `validate_upper_joint_id()` 对单臂和双臂 `joint_id=0` 均抛出 `TuyaRobotDualArmDataException`，测试按实际契约单独断言。
+- 当前 SDK 对 Jog / 关节步进的 `joint_id=0`：单臂抛出 `TuyaRobotSingleArmDataException`，双臂抛出 `TuyaRobotDualArmDataException`，测试按入口分别断言。
 
 ## `upper_jog_angle_increment` 当前设计
 
@@ -100,14 +100,16 @@
 - 超限数据通过公开接口正常调用，不在用例内增加 SDK 预校验、跳过或协议编码规避，并启用 `motion + manual + danger`；无论调用结果如何，`finally` 均执行双臂回零。
 - 当前 SDK 不校验增量幅度；J1/J3/J5 的 `±333°` 超出协议 `int16 × 0.01°` 的 `±327.67°` 编码范围，该问题由用户另行提交 SDK Bug。
 - 速度 `0、101` 和关节 ID `0` 共 9 条，分别覆盖左臂、右臂和双臂，已通过 SDK validation 静态验证。
+- 另保留 1 条左臂刷新模式步进验证：返回失败 `CommandResult`（提示切换插补模式），结束后恢复插补并回零。
 
 ## `upper_jog_coord` 与 `upper_jog_coord_increment` 当前设计
 
 - `TuyaRobotBase.move_to_coord_initial_pose()` 现支持可选 `arm_side`：无参时移动并校验双臂，传入 `left` 或 `right` 时只移动并校验目标单臂。
 - `upper_jog_coord` 正常运动共 26 条：左右单臂分别覆盖六轴正负向，双臂只覆盖 Z 轴正负向。
-- 坐标 Jog 不断言软件限位；使用 `_async=False` 持续运动，专门断言失败 `CommandResult` 的 `status_code=32` 且消息包含“坐标无解”，随后读取停止坐标并回零。
-- `upper_jog_coord` 另保留 1 条刷新模式返回 `-1` 的验证，以及 18 条左右单臂/双臂速度、坐标轴 ID、方向非法参数。
+- 坐标 Jog 不断言软件限位；使用 `_async=False` 持续运动。结束态以 Excel 与实机为准：业务返回 `0` 的用例只断言返回值；失败 `CommandResult` 分别断言 `status_code=32`（“坐标无解”）或 `33`（“直线运动无相邻解”），后者随后读取停止坐标并回零。
+- `upper_jog_coord` 另保留 1 条刷新模式失败 `CommandResult` 验证，以及 18 条左右单臂/双臂速度、坐标轴 ID、方向非法参数。
 - `upper_jog_coord_increment` 正常运动共 13 条：左右单臂分别覆盖六轴步进 30 mm/30°，双臂只覆盖 Z 轴步进 30 mm；使用同步闭环、回读增量结果，并在 `finally` 中回零。
+- `upper_jog_coord_increment` 另保留 1 条左臂刷新模式步进验证：返回失败 `CommandResult`（提示切换插补模式）。
 - 坐标步进超限共 36 条，按 `|负限位| + |正限位| + 1` 生成正负值并通过公开接口正常调用；另有 12 条速度和坐标轴 ID 基础异常。
 - 当前 SDK 不校验坐标增量幅度，RX/RY/RZ 的 `±361°` 还超过协议编码范围；该问题由用户另行提交 SDK Bug，用例不增加跳过或预拦截。
 

@@ -30,7 +30,7 @@ def restore_upper_interpolation_mode(device, upper_body):
 
 
 @allure.feature("笛卡尔坐标连续 Jog 运动")
-@allure.story("单臂六轴和双臂Z轴运动到坐标无解")
+@allure.story("单臂六轴和双臂Z轴按实机结束态断言")
 @pytest.mark.upper_body
 @pytest.mark.motion
 @pytest.mark.manual
@@ -44,8 +44,8 @@ def test_upper_jog_coord(device, upper_body, left_arm, right_arm, case):
     coord_id = int(case["coord_id"])
     direction = int(case["direction"])
     speed = int(case["speed"])
-    expected_status = int(case["status_code"])
-    expected_message = str(case["message"])
+    expect_data = case["expect_data"]
+    success_return = expect_data is not None and str(expect_data).strip() != ""
 
     logger.info(f">>>>>>>>>>用例【{title}】开始测试<<<<<<<<<<")
     logger.debug(f'test_api:{case["api"]}')
@@ -66,24 +66,34 @@ def test_upper_jog_coord(device, upper_body, left_arm, right_arm, case):
         with allure.step(f"调用{target_name} upper_jog_coord 接口持续运动"):
             result = target_device.upper_jog_coord(coord_id, direction, speed, _async=False)
             logger.debug(f"接口 upper_jog_coord 返回：{result}")
-        with allure.step("断言 Jog 运动以坐标无解结束"):
-            assert isinstance(result, CommandResult), f"坐标无解时应返回 CommandResult，实际: {result!r}"
-            allure.attach(str(expected_status), name="期望状态码", attachment_type=allure.attachment_type.TEXT)
-            allure.attach(str(result.status_code), name="实际状态码", attachment_type=allure.attachment_type.TEXT)
-            allure.attach(expected_message, name="期望错误信息", attachment_type=allure.attachment_type.TEXT)
-            allure.attach(result.message, name="实际错误信息", attachment_type=allure.attachment_type.TEXT)
-            assert result.ok is False
-            assert result.status_code == expected_status
-            assert expected_message in result.message
-        with allure.step("等待运动停止并读取坐标无解时的实际坐标"):
-            device.wait_upper(timeout=30)
-            actual_coords = device.result_data(target_device.get_upper_coords())
-            if target == "both":
-                assert isinstance(actual_coords, dict) and set(actual_coords) >= {"left", "right"}
-                assert all(isinstance(actual_coords[side], (list, tuple)) and len(actual_coords[side]) == 6 for side in ("left", "right"))
-            else:
-                assert isinstance(actual_coords, (list, tuple)) and len(actual_coords) == 6
-            allure.attach(str(actual_coords), name="坐标无解时的实际坐标", attachment_type=allure.attachment_type.TEXT)
+        if success_return:
+            expected = int(expect_data)
+            with allure.step("断言接口返回业务值"):
+                actual = device.result_data(result)
+                allure.attach(str(expected), name="期望值", attachment_type=allure.attachment_type.TEXT)
+                allure.attach(str(actual), name="实际值", attachment_type=allure.attachment_type.TEXT)
+                assert actual == expected
+        else:
+            expected_status = int(case["status_code"])
+            expected_message = str(case["message"])
+            with allure.step("断言 Jog 运动以失败 CommandResult 结束"):
+                assert isinstance(result, CommandResult), f"失败结束时应返回 CommandResult，实际: {result!r}"
+                allure.attach(str(expected_status), name="期望状态码", attachment_type=allure.attachment_type.TEXT)
+                allure.attach(str(result.status_code), name="实际状态码", attachment_type=allure.attachment_type.TEXT)
+                allure.attach(expected_message, name="期望错误信息", attachment_type=allure.attachment_type.TEXT)
+                allure.attach(result.message, name="实际错误信息", attachment_type=allure.attachment_type.TEXT)
+                assert result.ok is False
+                assert result.status_code == expected_status
+                assert expected_message in result.message
+            with allure.step("等待运动停止并读取结束时的实际坐标"):
+                device.wait_upper(timeout=30)
+                actual_coords = device.result_data(target_device.get_upper_coords())
+                if target == "both":
+                    assert isinstance(actual_coords, dict) and set(actual_coords) >= {"left", "right"}
+                    assert all(isinstance(actual_coords[side], (list, tuple)) and len(actual_coords[side]) == 6 for side in ("left", "right"))
+                else:
+                    assert isinstance(actual_coords, (list, tuple)) and len(actual_coords) == 6
+                allure.attach(str(actual_coords), name="结束时的实际坐标", attachment_type=allure.attachment_type.TEXT)
     finally:
         with allure.step("在用例结束后回到双臂零位"):
             device.go_zero()
@@ -104,7 +114,7 @@ def test_upper_jog_coord_refresh_mode_unsupported(device, upper_body, left_arm, 
     target = str(case["target"]).lower()
     target_name = {"left": "左臂", "right": "右臂", "both": "双臂"}[target]
     target_device = {"left": left_arm, "right": right_arm, "both": upper_body}[target]
-    expected = case["expect_data"]
+    expected_message = str(case["message"])
 
     logger.info(f">>>>>>>>>>用例【{title}】开始测试<<<<<<<<<<")
     logger.debug(f'test_api:{case["api"]}')
@@ -119,17 +129,23 @@ def test_upper_jog_coord_refresh_mode_unsupported(device, upper_body, left_arm, 
     try:
         with allure.step(f"设置{target_name}为刷新模式"):
             assert device.result_data(target_device.set_upper_fresh_mode(1)) == 1
+        with allure.step("刷新模式下显式启用默认异步状态"):
+            assert upper_body.set_upper_motion_async(True) is True
         with allure.step(f"刷新模式下调用{target_name} upper_jog_coord 接口"):
             result = target_device.upper_jog_coord(case["coord_id"], case["direction"], case["speed"], _async=True)
-            actual_result = device.result_data(result)
-            logger.debug(f"接口 upper_jog_coord 返回：{actual_result}")
+            logger.debug(f"接口 upper_jog_coord 返回：{result}")
         with allure.step("断言刷新模式不支持坐标 Jog"):
-            allure.attach(str(expected), name="期望业务返回值", attachment_type=allure.attachment_type.TEXT)
-            allure.attach(str(actual_result), name="实际业务返回值", attachment_type=allure.attachment_type.TEXT)
-            assert actual_result == expected
+            assert isinstance(result, CommandResult), f"刷新模式 Jog 应返回 CommandResult，实际: {result!r}"
+            allure.attach(expected_message, name="期望错误信息", attachment_type=allure.attachment_type.TEXT)
+            allure.attach(str(result.message), name="实际错误信息", attachment_type=allure.attachment_type.TEXT)
+            assert result.ok is False
+            assert expected_message in (result.message or ""), (
+                f"错误信息不一致，期望包含: {expected_message}，实际: {result.message}"
+            )
     finally:
         with allure.step("恢复双臂插补模式并回零"):
             assert device.result_data(upper_body.set_upper_fresh_mode(0)) == 1
+            assert upper_body.set_upper_motion_async(False) is False
             device.go_zero()
 
     logger.info(f"✓ 用例【{title}】测试通过")

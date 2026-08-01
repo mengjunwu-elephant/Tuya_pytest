@@ -49,7 +49,7 @@ def test_set_upper_tool_reference(device, upper_body, left_arm, right_arm, case)
     try:
         with allure.step(f"调用{target_name} set_upper_tool_reference 接口"):
             if target == "both":
-                result = upper_body.set_upper_tool_reference(left=setting_value, right=setting_value)
+                result = upper_body.set_upper_tool_reference(setting_value, setting_value)
             else:
                 result = target_device.set_upper_tool_reference(setting_value)
             actual = device.result_data(result)

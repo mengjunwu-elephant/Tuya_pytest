@@ -68,6 +68,6 @@ collection 阶段自动给 `testcases/` 下项目添加 `hardware`。以下 mark
 ## 验证
 
 1. `pytest --help`：确认全部 TuyaRobot CLI 仍可见。
-2. `pytest testcases --collect-only -q`：确认无需连接硬件即可收集，当前基线为 824 条。
+2. `pytest testcases --collect-only -q`：确认无需连接硬件即可收集，当前基线为 1020 条。
 3. 修改配置解析时，为 CLI 覆盖、环境变量回退和布尔/整数解析补充或运行针对性测试。
 4. 不在普通验证中传 `--run-hardware`；只有用户明确要求真机执行时才开启对应门控。
