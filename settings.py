@@ -59,7 +59,7 @@ class TuyaConnectionConfig:
     chassis_port: str = "COM16"
     chassis_baud: int = 2_000_000
     head_auto_connect: bool = False
-    chassis_auto_connect: bool = False
+    chassis_auto_connect: bool = True
     apply_limits_on_init: bool = False
     debug: bool = True
     plain_return: bool = True

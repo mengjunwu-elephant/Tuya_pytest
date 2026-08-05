@@ -77,6 +77,7 @@ def _connection_config(pytestconfig: pytest.Config) -> TuyaConnectionConfig:
         chassis_baud=pytestconfig.getoption("--chassis-baud") or env.chassis_baud,
         head_auto_connect=pytestconfig.getoption("--connect-head")
         or env.head_auto_connect,
+        # 底盘默认连接；仅 --no-connect-chassis 强制关闭（覆盖环境变量）
         chassis_auto_connect=(
             False
             if pytestconfig.getoption("--no-connect-chassis")
@@ -126,5 +127,5 @@ def head(device: TuyaRobotBase):
 @pytest.fixture(scope="session")
 def chassis(device: TuyaRobotBase):
     if not device.chassis.enabled:
-        pytest.skip("底盘串口未连接")
+        pytest.skip("底盘串口未连接；请勿使用 --no-connect-chassis，并检查 --chassis-port")
     return device.chassis
