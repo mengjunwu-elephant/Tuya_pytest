@@ -25,7 +25,7 @@ description: >-
 - 用 `get_test_data_from_excel(file, sheet_name)`；sheet 名与被测接口主题一致。
 - Excel 首行是字段名，空行会跳过；需要防止表结构漂移时传 `required_columns`。
 - 用例 `ID` 使用从 1 开始的连续纯数字，不添加 `SUA`、`UJA` 等接口缩写前缀。
-- `title` 直接写实际验证功能和关键参数，不复述 ID 或 API 名；例如“设置J1运动到10度”“设置J1运动到-167度，验证角度超限”“设置左右臂J1依次运动到软件下限-166度”。软件限位不得称为机械硬限位。
+- `title` 直接写实际验证功能和关键参数，不复述 ID 或 API 名；例如“设置J1运动到10度”“设置J1运动到-151度，验证角度超限”“设置左右臂J1依次运动到软件下限-150度”。软件限位不得称为机械硬限位。
 - 参数化装饰器保持单行，固定写成 `@pytest.mark.parametrize("case", ..., ids=lambda c: c["title"])`。
 - 仅在现有数据包含 `test_type` 时拆分 normal/exception；不要擅自改变收集范围。
 - normal、exception、manual 等分类只读取 Excel 的 `test_type`；不要在测试代码中根据角度、限位或其他参数增加识别函数、兜底分类或覆盖分类。

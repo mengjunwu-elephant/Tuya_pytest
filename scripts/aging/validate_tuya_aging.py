@@ -488,13 +488,22 @@ class ArchitectureTests(unittest.TestCase):
 
     def test_software_limits_use_latest_confirmed_values(self) -> None:
         self.assertEqual(
-            constants.JOINT_SOFT_LIMITS[2], (-80.0, 105.0)
+            constants.JOINT_SOFT_LIMITS,
+            {
+                1: (-150.0, 176.0),
+                2: (-72.0, 125.0),
+                3: (-163.0, 167.0),
+                4: (-149.0, 1.0),
+                5: (-179.0, 148.0),
+                6: (-87.0, 42.0),
+                7: (-80.0, 92.0),
+            },
         )
         self.assertEqual(
             constants.COORD_SOFT_LIMITS[2], (-841.0, 841.0)
         )
         self.assertEqual(
-            constants.COORD_SOFT_LIMITS[3], (-636.0, 665.0)
+            constants.COORD_SOFT_LIMITS[3], (-636.0, 685.0)
         )
 
     def test_angle_groups_have_no_zero_between_three_groups(self) -> None:
