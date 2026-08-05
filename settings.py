@@ -59,7 +59,7 @@ class TuyaConnectionConfig:
     chassis_port: str = "COM16"
     chassis_baud: int = 2_000_000
     head_auto_connect: bool = False
-    chassis_auto_connect: bool = False
+    chassis_auto_connect: bool = True
     apply_limits_on_init: bool = False
     debug: bool = True
     plain_return: bool = True
@@ -109,13 +109,13 @@ class TuyaRobotBase:
         "right": (519.7, -160.6, 7.3, -97.73, 9.18, 49.29),
     }
     UPPER_BODY_JOINT_SOFT_LIMITS = {
-        1: (-166.0, 166.0),
-        2: (-80.0, 105.0),
-        3: (-166.0, 166.0),
-        4: (-170.0, 10.0),
-        5: (-166.0, 166.0),
-        6: (-100.0, 100.0),
-        7: (-100.0, 100.0),
+        1: (-150.0, 176.0),
+        2: (-72.0, 125.0),
+        3: (-163.0, 167.0),
+        4: (-149.0, 1.0),
+        5: (-179.0, 148.0),
+        6: (-87.0, 42.0),
+        7: (-80.0, 92.0),
     }
     UPPER_BODY_COORD_SOFT_LIMITS = {
         1: (-650.0, 650.0),
