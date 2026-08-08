@@ -61,9 +61,25 @@ def test_upper_jog_angle(device, upper_body, left_arm, right_arm, case):
         actual_modes = device.result_data(upper_body.get_upper_fresh_mode())
         assert isinstance(actual_modes, (list, tuple)) and len(actual_modes) == 2
         assert list(actual_modes) == [0, 0], f"双臂插补模式回读不一致，实际: {actual_modes}"
+        assert upper_body.set_upper_motion_async(False) is False
         device.go_zero()
 
     try:
+        if joint_id == 2 and direction == 1:
+            assert target in ("left", "right"), "双臂不执行J2正向Jog"
+            with allure.step(f"{target_name}J2正向Jog前先将J1运动到50度"):
+                prep_result = target_device.send_upper_angle(
+                    1, 50.0, TuyaRobotBase.speed, _async=False
+                )
+                assert device.result_data(prep_result) == 0
+                angles = device.result_data(upper_body.get_upper_angles())
+                assert_almost_equal(
+                    angles[target][0],
+                    50.0,
+                    tol=TuyaRobotBase.angle_tolerance,
+                    name=f"{target_name}J1前置角度",
+                )
+
         with allure.step(f"调用{target_name} upper_jog_angle 接口"):
             result = target_device.upper_jog_angle(joint_id, direction, speed, _async=True)
             actual_result = device.result_data(result)

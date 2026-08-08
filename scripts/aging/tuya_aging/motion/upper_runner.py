@@ -541,6 +541,12 @@ class UpperMotionRunner:
                 for direction in (0, 1):
                     if self.stop_event.is_set():
                         return
+                    # 双臂不跑 J2 正向；单臂 J2 正向前需先将 J1 运动到 50°
+                    if joint_id == 2 and direction == 1 and target == "both":
+                        logger.info(
+                            "跳过 upper_jog_angle 双臂J2正向"
+                        )
+                        continue
                     self.set_fresh_mode("both", 0)
                     expected_value = limits[direction]
 
@@ -549,7 +555,19 @@ class UpperMotionRunner:
                         joint_id: int = joint_id,
                         direction: int = direction,
                         limits: tuple[float, float] = limits,
+                        target: str = target,
                     ) -> tuple[Any, float, bool, bool]:
+                        if joint_id == 2 and direction == 1:
+                            self.device.call(
+                                api_owner.send_upper_angle,
+                                1,
+                                50.0,
+                                self.options.upper_speed,
+                                _async=False,
+                            )
+                            self.device.wait_until_stopped(
+                                self.stop_event, self.options.upper_timeout
+                            )
                         self.device.call(
                             api_owner.upper_jog_angle,
                             joint_id, direction, self.options.jog_speed,
