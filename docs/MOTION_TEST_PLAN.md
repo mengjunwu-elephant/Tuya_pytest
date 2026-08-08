@@ -43,8 +43,8 @@
 
 ## Jog 测试方式
 
-- `upper_jog_angle` 分别调用左臂、右臂和双臂正式接口，覆盖 J1～J7 的正向和负向运动，并以对应软件限位为期望值。
-- 每条关节 Jog 运动用例先设置双臂插补模式 `0` 并调用 `device.go_zero()`；异步下发 Jog 后等待其在软件限位自行停止并回读角度，在 `finally` 中直接回零，不额外调用 `upper_stop()`。
+- `upper_jog_angle` 分别调用左臂、右臂和双臂正式接口，覆盖 J1～J7 的正向和负向运动，并以对应软件限位为期望值；双臂不覆盖 J2 正向。
+- 每条关节 Jog 运动用例先设置双臂插补模式 `0` 并调用 `device.go_zero()`；左/右臂 J2 正向前先将该臂 `send_upper_angle(1, 50°)` 到位；异步下发 Jog 后等待其在软件限位自行停止并回读角度，在 `finally` 中直接回零，不额外调用 `upper_stop()`。
 - 刷新模式 `1` 不支持连续 Jog 与步进 Jog；`upper_jog_angle`、`upper_jog_coord`、`upper_jog_angle_increment`、`upper_jog_coord_increment` 各保留一条左臂调用验证：返回失败 `CommandResult`（提示切换插补模式），结束后恢复双臂插补模式并回零。
 - `upper_jog_angle_increment` 正常用例共 21 条：左臂、右臂和双臂分别覆盖 J1～J7，每条从零位执行单关节 30° 步进，J4 因正向软件限位仅为 `1°`而使用 `-30°`；同步等待到位、回读角度，并在 `finally` 中回零。
 - 关节步进超限共 42 条：按各关节 `|负限位| + |正限位|` 得到完整行程，再分别使用 `-(完整行程+1°)` 和 `完整行程+1°`，覆盖左臂、右臂和双臂。用例不增加 SDK 预校验或跳过逻辑，按公开接口正常调用，并启用 `motion + manual + danger`。
