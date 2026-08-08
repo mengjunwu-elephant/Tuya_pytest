@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""扫描 test_*.py，解析接口表名与各 test 函数；优先用 @allure.story 作为测试项展示名。"""
+"""扫描 test_*.py，解析接口表名、test 函数、pytest marker；按域分组供 QT 勾选。"""
 from __future__ import annotations
 
 import ast
@@ -14,6 +14,22 @@ _SHEET_RE = re.compile(
 # 文件名 test_12_xxx.py 按数字 12 排序，避免字符串顺序下 test_10 排在 test_2 前
 _TEST_FILE_NUM = re.compile(r"test_(\d+)_", re.IGNORECASE)
 
+DOMAIN_ORDER: tuple[str, ...] = ("head", "upper_body", "chassis")
+DOMAIN_LABELS: dict[str, str] = {
+    "head": "头部",
+    "upper_body": "上半身",
+    "chassis": "底盘",
+}
+GATE_MARKERS: frozenset[str] = frozenset({"motion", "manual", "danger", "firmware"})
+DOMAIN_MARKERS: frozenset[str] = frozenset({"head", "upper_body", "chassis"})
+_SCAN_ROOTS: tuple[str, ...] = ("testcases/upper_body", "testcases/chassis")
+GATE_HINTS: dict[str, str] = {
+    "motion": "运动",
+    "manual": "人工",
+    "danger": "高风险",
+    "firmware": "固件",
+}
+
 
 @dataclass(frozen=True)
 class TestItem:
@@ -22,6 +38,26 @@ class TestItem:
     func_name: str
     label: str  # 界面展示（通常来自 @allure.story）
     uses_input: bool = False  # 函数体内是否调用 input()（需人工交互）
+    markers: frozenset[str] = frozenset()
+
+    @property
+    def domain(self) -> str | None:
+        return domain_for_markers(self.markers)
+
+    @property
+    def required_gates(self) -> frozenset[str]:
+        return self.markers & GATE_MARKERS
+
+    def hint_suffix(self) -> str:
+        parts: list[str] = []
+        for key in ("motion", "manual", "danger", "firmware"):
+            if key in self.markers:
+                parts.append(GATE_HINTS[key])
+        if self.uses_input:
+            parts.append("交互")
+        if not parts:
+            return ""
+        return " [" + "/".join(parts) + "]"
 
 
 @dataclass
@@ -55,6 +91,67 @@ class TestModuleRow:
             return choice
         return None
 
+    @property
+    def required_gates(self) -> frozenset[str]:
+        gates: set[str] = set()
+        for item in self.items:
+            gates |= item.required_gates
+        return frozenset(gates)
+
+    @property
+    def all_func_names(self) -> frozenset[str]:
+        return frozenset(i.func_name for i in self.items)
+
+
+@dataclass
+class DomainModuleRow:
+    """某一测试域下的一个文件视图（可能只含该域内的函数）。"""
+
+    domain: str
+    rel_path: str
+    display_name: str
+    items: list[TestItem] = field(default_factory=list)
+    all_file_func_names: frozenset[str] = frozenset()
+
+    @property
+    def required_gates(self) -> frozenset[str]:
+        gates: set[str] = set()
+        for item in self.items:
+            gates |= item.required_gates
+        return frozenset(gates)
+
+    @property
+    def domain_func_names(self) -> frozenset[str]:
+        return frozenset(i.func_name for i in self.items)
+
+    def hint_suffix(self) -> str:
+        gates = self.required_gates
+        parts = [GATE_HINTS[k] for k in ("motion", "manual", "danger", "firmware") if k in gates]
+        if any(i.uses_input for i in self.items):
+            parts.append("交互")
+        if not parts:
+            return ""
+        return " [" + "/".join(parts) + "]"
+
+
+@dataclass
+class DiscoverResult:
+    """三域发现结果。"""
+
+    by_domain: dict[str, list[DomainModuleRow]]
+    unmarked_paths: list[str] = field(default_factory=list)
+
+
+def domain_for_markers(markers: frozenset[str] | set[str]) -> str | None:
+    """域归属优先级：head > chassis > upper_body。"""
+    if "head" in markers:
+        return "head"
+    if "chassis" in markers:
+        return "chassis"
+    if "upper_body" in markers:
+        return "upper_body"
+    return None
+
 
 def _string_from_ast_constant(node: ast.expr) -> str | None:
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
@@ -83,6 +180,26 @@ def _allure_story_label(decorator_list: list[ast.expr]) -> str | None:
         if s is not None:
             return s.strip() or None
     return None
+
+
+def _pytest_mark_names(decorator_list: list[ast.expr]) -> frozenset[str]:
+    """解析 @pytest.mark.xxx / @pytest.mark.xxx(...)。"""
+    names: set[str] = set()
+    for dec in decorator_list:
+        node = dec
+        if isinstance(node, ast.Call):
+            node = node.func
+        # pytest.mark.name
+        if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Attribute):
+            if (
+                isinstance(node.value.value, ast.Name)
+                and node.value.value.id == "pytest"
+                and node.value.attr == "mark"
+            ):
+                names.add(node.attr)
+                continue
+        # mark.name（from pytest import mark）较少见，忽略
+    return frozenset(names)
 
 
 _OPERATOR_PROMPT_FUNCS = frozenset({"input", "prompt_continue", "prompt_text"})
@@ -136,8 +253,14 @@ def discover_under_root(project_root: Path, testcase_root: str) -> list[TestModu
             story = _allure_story_label(node.decorator_list)
             label = _label_for_test_function(node.name, story, used)
             uses_in = file_uses_input or _tree_uses_operator_input(node)
+            markers = _pytest_mark_names(node.decorator_list)
             items.append(
-                TestItem(func_name=node.name, label=label, uses_input=uses_in),
+                TestItem(
+                    func_name=node.name,
+                    label=label,
+                    uses_input=uses_in,
+                    markers=markers,
+                ),
             )
         if not items:
             continue
@@ -198,3 +321,44 @@ def discover_grouped_for_arm(
         if chunk:
             groups.append((tr, chunk))
     return groups
+
+
+def discover_by_domain(project_root: Path) -> DiscoverResult:
+    """
+    扫描上半身与底盘目录，按 pytest.mark 拆成头部 / 上半身 / 底盘。
+    无域 marker 的文件进入 unmarked_paths，不进入三域树。
+    """
+    project_root = project_root.resolve()
+    by_domain: dict[str, list[DomainModuleRow]] = {d: [] for d in DOMAIN_ORDER}
+    unmarked: list[str] = []
+    seen: set[str] = set()
+
+    for root in _SCAN_ROOTS:
+        for row in discover_under_root(project_root, root):
+            if row.rel_path in seen:
+                continue
+            seen.add(row.rel_path)
+            grouped: dict[str, list[TestItem]] = {}
+            for item in row.items:
+                domain = item.domain
+                if domain is None:
+                    continue
+                grouped.setdefault(domain, []).append(item)
+            if not grouped:
+                unmarked.append(row.rel_path)
+                continue
+            all_funcs = row.all_func_names
+            for domain, items in grouped.items():
+                by_domain[domain].append(
+                    DomainModuleRow(
+                        domain=domain,
+                        rel_path=row.rel_path,
+                        display_name=row.display_name,
+                        items=items,
+                        all_file_func_names=all_funcs,
+                    )
+                )
+
+    for domain in DOMAIN_ORDER:
+        by_domain[domain].sort(key=lambda r: _pytest_file_sort_key(r.rel_path))
+    return DiscoverResult(by_domain=by_domain, unmarked_paths=unmarked)
