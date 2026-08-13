@@ -22,12 +22,16 @@ class FailurePolicy:
         self.limit = limit
         self.stats = stats
         self.lock = threading.Lock()
-        self.action_streak = {"upper": 0, "chassis": 0}
-        self.response_streak = {"upper": 0, "chassis": 0}
+        self.action_streak = {"upper": 0, "chassis": 0, "head": 0}
+        self.response_streak = {"upper": 0, "chassis": 0, "head": 0}
 
     @staticmethod
     def _prefix(subsystem: str) -> str:
-        return "上半身" if subsystem == "upper" else "底盘"
+        if subsystem == "upper":
+            return "上半身"
+        if subsystem == "head":
+            return "头部"
+        return "底盘"
 
     def record_command_response(
         self, subsystem: str, *, responded: bool, api: str

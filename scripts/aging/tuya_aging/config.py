@@ -28,6 +28,8 @@ def env_int(name: str, default: int) -> int:
 class AgingConnectionConfig:
     upper_ip: str = "192.168.0.232"
     upper_port: int = 6500
+    head_ip: str = "192.168.0.231"
+    head_port: int = 6501
     chassis_port: str = "COM9"
     chassis_baud: int = 2_000_000
     debug: bool = False
@@ -40,6 +42,9 @@ class AgingConnectionConfig:
             upper_ip=os.environ.get("TUYA_ROBOT_IP", cls.upper_ip).strip()
             or cls.upper_ip,
             upper_port=env_int("TUYA_ROBOT_PORT", cls.upper_port),
+            head_ip=os.environ.get("TUYA_HEAD_IP", cls.head_ip).strip()
+            or cls.head_ip,
+            head_port=env_int("TUYA_HEAD_PORT", cls.head_port),
             chassis_port=os.environ.get(
                 "TUYA_CHASSIS_PORT", cls.chassis_port
             ).strip()
@@ -55,13 +60,16 @@ class AgingConnectionConfig:
 class AgingOptions:
     run_upper_motion: bool
     run_chassis_motion: bool
+    run_head_motion: bool
     monitor_only: bool
     duration_hours: float
     cycle_limit: int
     upper_speed: int
     jog_speed: int
+    head_speed: int
     upper_timeout: float
     jog_timeout: float
+    head_timeout: float
     monitor_interval: float
     autosave_interval: float
     chassis_forward_mps: float
@@ -73,3 +81,4 @@ class AgingOptions:
     consecutive_failure_limit: int
     consecutive_motion_failure_limit: int
     auto_report_max_age: float
+    head_animation_paths: tuple[Path, ...]

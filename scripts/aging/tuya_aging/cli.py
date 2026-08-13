@@ -17,6 +17,7 @@ from .runtime.coordinator import AgingCoordinator
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_HEAD_ANIMATION_DIR = Path(__file__).resolve().parent / "pag_file"
 
 
 def positive_int(value: str) -> int:
@@ -40,17 +41,28 @@ def positive_float(value: str) -> float:
     return parsed
 
 
+def discover_pag_files(directory: Path) -> tuple[Path, ...]:
+    """扫描目录下全部 .pag；目录不存在或为空则返回空元组。"""
+    if not directory.is_dir():
+        return ()
+    return tuple(sorted(path.resolve() for path in directory.glob("*.pag")))
+
+
 def build_parser() -> argparse.ArgumentParser:
     defaults = AgingConnectionConfig.from_env()
     parser = argparse.ArgumentParser(
         description=(
-            "TuyaRobot 上半身与底盘独立并行老化。"
+            "TuyaRobot 上半身、头部与底盘独立并行老化。"
             "软件限位和 Jog 属于危险实机运动，必须现场人工监护。"
         )
     )
     parser.add_argument("--upper-ip", default=defaults.upper_ip)
     parser.add_argument(
         "--upper-port", type=positive_int, default=defaults.upper_port
+    )
+    parser.add_argument("--head-ip", default=defaults.head_ip)
+    parser.add_argument(
+        "--head-port", type=positive_int, default=defaults.head_port
     )
     parser.add_argument("--chassis-port", default=defaults.chassis_port)
     parser.add_argument(
@@ -64,6 +76,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="启用上半身真实运动、软件限位和 Jog 老化",
     )
     parser.add_argument(
+        "--run-head-motion",
+        action="store_true",
+        help="启用头部真实运动、软件限位、四色 LED 与 pag 动画老化",
+    )
+    parser.add_argument(
         "--run-chassis-motion",
         action="store_true",
         help="启用底盘真实往返及旋转运动",
@@ -71,7 +88,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--monitor-only",
         action="store_true",
-        help="仅采集上半身和底盘状态，不执行运动",
+        help="仅采集上半身、头部和底盘状态，不执行运动",
     )
     parser.add_argument(
         "--duration-hours",
@@ -88,10 +105,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--upper-speed", type=positive_int, default=20)
     parser.add_argument("--jog-speed", type=positive_int, default=10)
     parser.add_argument(
+        "--head-speed",
+        type=positive_int,
+        default=constants.HEAD_SPEED,
+        help="头部运动速度（SDK 1~100）",
+    )
+    parser.add_argument(
         "--upper-timeout", type=positive_float, default=60.0
     )
     parser.add_argument(
         "--jog-timeout", type=positive_float, default=300.0
+    )
+    parser.add_argument(
+        "--head-timeout", type=positive_float, default=60.0
     )
     parser.add_argument(
         "--monitor-interval", type=positive_float, default=0.5
@@ -134,7 +160,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--validate-config",
         action="store_true",
-        help="只校验参数和内置三组角度/坐标，不连接设备",
+        help="只校验参数和内置角度/坐标/头部限位，不连接设备",
     )
     parser.add_argument(
         "--debug",
@@ -153,13 +179,17 @@ def validate_args(
     args: argparse.Namespace, parser: argparse.ArgumentParser
 ) -> None:
     if args.monitor_only and (
-        args.run_upper_motion or args.run_chassis_motion
+        args.run_upper_motion
+        or args.run_chassis_motion
+        or args.run_head_motion
     ):
         parser.error("--monitor-only 不能与运动开关同时使用")
     if not 1 <= args.upper_speed <= 100:
         parser.error("--upper-speed 必须在 1~100")
     if not 1 <= args.jog_speed <= 100:
         parser.error("--jog-speed 必须在 1~100")
+    if not 1 <= args.head_speed <= 100:
+        parser.error("--head-speed 必须在 1~100")
     if args.duration_hours < 0:
         parser.error("--duration-hours 不得小于 0")
     for group in constants.ANGLE_GROUPS:
@@ -168,15 +198,22 @@ def validate_args(
     for group in constants.COORD_GROUPS:
         if len(group["left"]) != 6 or len(group["right"]) != 6:
             parser.error("内置全坐标组长度错误")
+    if len(constants.HEAD_ZERO_ANGLES) != 4:
+        parser.error("头部零位长度错误")
+    if sorted(constants.HEAD_JOINT_SOFT_LIMITS) != [1, 2, 3, 4]:
+        parser.error("头部软限位关节号错误")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     validate_args(args, parser)
+    animation_paths = discover_pag_files(DEFAULT_HEAD_ANIMATION_DIR)
     connection = AgingConnectionConfig(
         upper_ip=args.upper_ip,
         upper_port=args.upper_port,
+        head_ip=args.head_ip,
+        head_port=args.head_port,
         chassis_port=args.chassis_port,
         chassis_baud=args.chassis_baud,
         debug=args.debug,
@@ -192,6 +229,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "coord_groups": constants.COORD_GROUPS,
                     "joint_soft_limits": constants.JOINT_SOFT_LIMITS,
                     "coord_soft_limits": constants.COORD_SOFT_LIMITS,
+                    "head_joint_soft_limits": constants.HEAD_JOINT_SOFT_LIMITS,
+                    "head_zero_angles": constants.HEAD_ZERO_ANGLES,
+                    "head_animation_dir": str(DEFAULT_HEAD_ANIMATION_DIR),
+                    "head_animation_paths": [
+                        str(path) for path in animation_paths
+                    ],
                 },
                 ensure_ascii=False,
                 indent=2,
@@ -202,21 +245,25 @@ def main(argv: Sequence[str] | None = None) -> int:
         args.monitor_only
         or args.run_upper_motion
         or args.run_chassis_motion
+        or args.run_head_motion
     ):
         parser.error(
-            "必须选择 --monitor-only、--run-upper-motion 或 "
-            "--run-chassis-motion"
+            "必须选择 --monitor-only、--run-upper-motion、"
+            "--run-head-motion 或 --run-chassis-motion"
         )
     options = AgingOptions(
         run_upper_motion=args.run_upper_motion,
         run_chassis_motion=args.run_chassis_motion,
+        run_head_motion=args.run_head_motion,
         monitor_only=args.monitor_only,
         duration_hours=args.duration_hours,
         cycle_limit=args.cycle_limit,
         upper_speed=args.upper_speed,
         jog_speed=args.jog_speed,
+        head_speed=args.head_speed,
         upper_timeout=args.upper_timeout,
         jog_timeout=args.jog_timeout,
+        head_timeout=args.head_timeout,
         monitor_interval=args.monitor_interval,
         autosave_interval=args.autosave_interval,
         chassis_forward_mps=args.chassis_forward_mps,
@@ -230,6 +277,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.consecutive_motion_failure_limit
         ),
         auto_report_max_age=args.auto_report_max_age,
+        head_animation_paths=animation_paths,
     )
     run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     report_root = options.report_dir.resolve() / run_id
@@ -238,7 +286,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         {
             **asdict(connection),
             **{
-                key: str(value) if isinstance(value, Path) else value
+                key: (
+                    [str(item) for item in value]
+                    if key == "head_animation_paths"
+                    else (str(value) if isinstance(value, Path) else value)
+                )
                 for key, value in asdict(options).items()
             },
         },
@@ -246,7 +298,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     attach_run_log(report_root)
     logger.info("TuyaRobot 老化启动，报告目录：%s", report_root)
     logger.warning(
-        "上半身软件限位、Jog 和底盘运动必须由现场人员持续监护"
+        "上半身软件限位、头部软限位、Jog 和底盘运动必须由现场人员持续监护"
     )
     try:
         coordinator = AgingCoordinator(connection, options, report)

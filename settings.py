@@ -125,6 +125,13 @@ class TuyaRobotBase:
         5: (-180.0, 180.0),
         6: (-180.0, 180.0),
     }
+    HEAD_ZERO_ANGLES = (0.0, 0.0, 0.0, 0.0)
+    HEAD_JOINT_SOFT_LIMITS = {
+        1: (-115.0, 115.0),
+        2: (-43.0, 28.0),
+        3: (-43.0, 43.0),
+        4: (-43.0, 43.0),
+    }
     ROBOT_TEST_DATA_FILE = ROBOT_TEST_DATA_FILE
     UPPER_BODY_TEST_DATA_FILE = UPPER_BODY_TEST_DATA_FILE
     CHASSIS_TEST_DATA_FILE = CHASSIS_TEST_DATA_FILE

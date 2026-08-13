@@ -16,4 +16,8 @@ class AgingContext:
     policy: Any
     stop_event: threading.Event
     fatal: Callable[[str, str, BaseException | str], None]
+    stop_head_motion: Callable[[str, BaseException | str], None]
     upper_blocking_motion: threading.Event
+    head_blocking_motion: threading.Event
+    head_stop_event: threading.Event
+    head_ready: threading.Event

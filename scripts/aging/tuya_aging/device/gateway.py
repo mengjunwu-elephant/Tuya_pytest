@@ -16,7 +16,9 @@ from ..report.log_setup import logger
 
 
 class TuyaGateway:
-    _QUIET_SUCCESS_APIS = frozenset({"get_upper_is_moving"})
+    _QUIET_SUCCESS_APIS = frozenset(
+        {"get_upper_is_moving", "is_head_moving"}
+    )
 
     def __init__(
         self,
@@ -27,6 +29,7 @@ class TuyaGateway:
         self.policy = policy
         self.upper_lock = threading.RLock()
         self.chassis_lock = threading.RLock()
+        self.head_lock = threading.RLock()
 
     @staticmethod
     def result_data(result: Any) -> Any:
@@ -54,7 +57,15 @@ class TuyaGateway:
         if (
             name == "upper_go_zero"
             or name == "agv_wheel_control"
-            or name.startswith(("send_upper_", "write_upper_", "upper_jog_"))
+            or name.startswith(
+                (
+                    "send_upper_",
+                    "write_upper_",
+                    "upper_jog_",
+                    "send_head_",
+                    "play_screen_",
+                )
+            )
         ):
             return "运动"
         return "控制"
@@ -77,10 +88,18 @@ class TuyaGateway:
             isinstance(exc, CommunicationResponseError) and exc.is_timeout
         )
 
+    @staticmethod
+    def _prefix(subsystem: str) -> str:
+        if subsystem == "upper":
+            return "上半身"
+        if subsystem == "head":
+            return "头部"
+        return "底盘"
+
     def _metric(
         self, subsystem: str, api: str, metric: str
     ) -> None:
-        prefix = "上半身" if subsystem == "upper" else "底盘"
+        prefix = self._prefix(subsystem)
         self.report.count(f"{prefix}通信汇总", metric)
         self.report.count(f"{prefix}通信/{api}", metric)
 
@@ -101,7 +120,7 @@ class TuyaGateway:
         context = lock if use_lock else _NullLock()
         with context:
             self._metric(subsystem, api, "调用")
-            prefix = "上半身" if subsystem == "upper" else "底盘"
+            prefix = self._prefix(subsystem)
             log_success_calls = self._log_success_calls(api)
             if log_success_calls:
                 logger.info(
@@ -178,6 +197,13 @@ class TuyaGateway:
     ) -> Any:
         return self._call(
             "chassis", self.chassis_lock, func, args, kwargs
+        )
+
+    def head(
+        self, func: Callable[..., Any], *args: Any, **kwargs: Any
+    ) -> Any:
+        return self._call(
+            "head", self.head_lock, func, args, kwargs
         )
 
     def upper_blocking_raw(

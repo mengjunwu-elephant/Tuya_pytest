@@ -13,14 +13,17 @@ class TuyaConnection:
         config: AgingConnectionConfig,
         *,
         connect_chassis: bool,
+        connect_head: bool,
     ) -> None:
         self.config = config
         self.robot = TuyaRobot(
             config.upper_ip,
             config.upper_port,
+            head_ip=config.head_ip,
+            head_port=config.head_port,
             chassis_port=config.chassis_port,
             chassis_baud=config.chassis_baud,
-            head_auto_connect=False,
+            head_auto_connect=connect_head,
             chassis_auto_connect=connect_chassis,
             apply_limits_on_init=config.apply_limits_on_init,
             debug=config.debug,

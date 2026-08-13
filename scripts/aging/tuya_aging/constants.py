@@ -78,4 +78,34 @@ COORD_GROUPS = (
     },
 )
 
-ACTIVE_FRESH_MODES = (0,1)
+ACTIVE_FRESH_MODES = (0,)
+
+# 头部 1.0 已确认软限位（不以 SDK ±150 校验边界作为老化扫边目标）
+HEAD_SPEED = 10
+HEAD_ANGLE_TOLERANCE = 1.0
+HEAD_ZERO_ANGLES = (0.0, 0.0, 0.0, 0.0)
+HEAD_JOINT_SOFT_LIMITS = {
+    1: (-60.0, 60.0),
+    2: (-10.0, 10.0),
+    3: (-40.0, 40.0),
+    4: (-40.0, 40.0),
+}
+# 表内最大速度（°/s）仅作元数据；下发仍用 SDK 1~100 速度标度
+HEAD_JOINT_MAX_SPEED = {
+    1: 150.0,
+    2: 150.0,
+    3: 360.0,
+    4: 360.0,
+}
+# mode, r, g, b, brightness, side, frequency_ms
+# side 为位掩码，3 表示左右耳同时点亮；0 无任何耳朵生效
+HEAD_LED_DWELL_SECONDS = 5.0
+HEAD_LED_COLORS = (
+    ("红", (1, 255, 0, 0, 50, 3, 1000)),
+    ("绿", (1, 0, 255, 0, 50, 3, 1000)),
+    ("蓝", (1, 0, 0, 255, 50, 3, 1000)),
+    ("白", (1, 255, 255, 255, 50, 3, 1000)),
+)
+HEAD_LED_RESTORE = (1, 0, 0, 0, 0, 3, 1000)
+# play_head_animation 立即返回后的短暂等待
+HEAD_ANIMATION_SETTLE_SECONDS = 1.0

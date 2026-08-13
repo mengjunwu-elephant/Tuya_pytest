@@ -4,10 +4,12 @@ from .connection import TuyaConnection
 from .gateway import TuyaGateway
 from .upper_body import UpperBodyDevice
 from .chassis import ChassisDevice
+from .head import HeadDevice
 
 __all__ = [
     "TuyaConnection",
     "TuyaGateway",
     "UpperBodyDevice",
     "ChassisDevice",
+    "HeadDevice",
 ]

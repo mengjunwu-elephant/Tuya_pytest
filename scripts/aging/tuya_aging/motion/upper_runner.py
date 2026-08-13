@@ -941,7 +941,7 @@ class UpperMotionRunner:
                 ("三组关节角度", self.run_angle_groups),
                 ("三组坐标", self.run_coord_groups),
                 ("单轴坐标", self.run_single_coords),
-                ("关节Jog", self.run_jog_angles),
+                # ("关节Jog", self.run_jog_angles),
                 ("关节增量", self.run_jog_increments),
                 ("坐标Jog", self.run_jog_coords),
                 ("坐标增量", self.run_coord_increments),

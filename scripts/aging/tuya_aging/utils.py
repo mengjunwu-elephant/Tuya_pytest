@@ -53,3 +53,18 @@ def chassis_status_has_error(status: Any) -> bool:
         status.get(key, 0) not in (0, None)
         for key in ("status", "left_motor_error", "right_motor_error")
     )
+
+
+def head_status_has_error(status: Any) -> bool:
+    if not isinstance(status, dict):
+        return False
+    soft_error = status.get("soft_error", 0)
+    if soft_error not in (0, None, False):
+        return True
+    motor_errors = status.get("motor_errors")
+    if isinstance(motor_errors, (list, tuple)):
+        return any(value not in (0, None) for value in motor_errors)
+    joint_errors = status.get("joint_errors")
+    if isinstance(joint_errors, (list, tuple)):
+        return any(value not in (0, None) for value in joint_errors)
+    return False

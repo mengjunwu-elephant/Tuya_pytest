@@ -7,17 +7,23 @@ import threading
 import time
 from typing import Any
 
+from .. import constants
 from ..config import AgingConnectionConfig, AgingOptions
 from ..device import (
     ChassisDevice,
+    HeadDevice,
     TuyaConnection,
     TuyaGateway,
     UpperBodyDevice,
 )
 from ..domain.policy import FailurePolicy
 from ..domain.context import AgingContext
-from ..monitor import ChassisMonitor, UpperMonitor
-from ..motion import ChassisMotionRunner, UpperMotionRunner
+from ..monitor import ChassisMonitor, HeadMonitor, UpperMonitor
+from ..motion import (
+    ChassisMotionRunner,
+    HeadMotionRunner,
+    UpperMotionRunner,
+)
 from ..report.collector import ReportCollector
 from ..report.log_setup import logger
 
@@ -33,15 +39,23 @@ class AgingCoordinator:
         self.report = report
         self.stop_event = threading.Event()
         self.upper_blocking_motion = threading.Event()
+        self.head_blocking_motion = threading.Event()
+        self.head_stop_event = threading.Event()
+        self.head_ready = threading.Event()
         self.fatal_lock = threading.Lock()
+        self.head_stop_lock = threading.Lock()
         self.finished_lock = threading.Lock()
         self.fatal_reason = ""
+        self.head_stop_reason = ""
         self.shutdown_reason = ""
         self.finished_motion: set[str] = set()
         self.connection = TuyaConnection(
             connection_config,
             connect_chassis=(
                 options.run_chassis_motion or options.monitor_only
+            ),
+            connect_head=(
+                options.run_head_motion or options.monitor_only
             ),
         )
         self.policy = FailurePolicy(
@@ -54,13 +68,20 @@ class AgingCoordinator:
         self.chassis_device = ChassisDevice(
             self.connection.robot, self.gateway
         )
+        self.head_device = HeadDevice(
+            self.connection.robot, self.gateway
+        )
         self.context = AgingContext(
             options=options,
             report=report,
             policy=self.policy,
             stop_event=self.stop_event,
             fatal=self.fatal,
+            stop_head_motion=self.stop_head_motion,
             upper_blocking_motion=self.upper_blocking_motion,
+            head_blocking_motion=self.head_blocking_motion,
+            head_stop_event=self.head_stop_event,
+            head_ready=self.head_ready,
         )
         self.upper_runner = UpperMotionRunner(
             self.upper_device, self.context
@@ -68,11 +89,17 @@ class AgingCoordinator:
         self.chassis_runner = ChassisMotionRunner(
             self.chassis_device, self.context
         )
+        self.head_runner = HeadMotionRunner(
+            self.head_device, self.context
+        )
         self.upper_monitor = UpperMonitor(
             self.upper_device, self.context
         )
         self.chassis_monitor = ChassisMonitor(
             self.chassis_device, self.context
+        )
+        self.head_monitor = HeadMonitor(
+            self.head_device, self.context
         )
 
     def fatal(
@@ -94,6 +121,29 @@ class AgingCoordinator:
                 "FATAL", subsystem, phase, message, exception
             )
             self.stop_event.set()
+            self.head_stop_event.set()
+
+    def stop_head_motion(
+        self, phase: str, exc: BaseException | str
+    ) -> None:
+        with self.head_stop_lock:
+            if self.head_stop_reason:
+                return
+            if isinstance(exc, BaseException):
+                message = str(exc)
+                exception = exc
+            else:
+                message = exc
+                exception = None
+            self.head_stop_reason = f"头部/{phase}: {message}"
+            logger.error(
+                "触发头部局部停止（上半身/底盘继续）：%s",
+                self.head_stop_reason,
+            )
+            self.report.event(
+                "ERROR", "头部", phase, message, exception
+            )
+            self.head_stop_event.set()
 
     def _mark_finished(self, name: str) -> None:
         with self.finished_lock:
@@ -111,6 +161,12 @@ class AgingCoordinator:
         finally:
             self._mark_finished("chassis")
 
+    def _run_head_motion(self) -> None:
+        try:
+            self.head_runner.run()
+        finally:
+            self._mark_finished("head")
+
     def _report_worker(self) -> None:
         while not self.stop_event.wait(self.options.autosave_interval):
             try:
@@ -125,6 +181,8 @@ class AgingCoordinator:
             expected.add("upper")
         if self.options.run_chassis_motion:
             expected.add("chassis")
+        if self.options.run_head_motion:
+            expected.add("head")
         if not expected:
             return False
         with self.finished_lock:
@@ -151,6 +209,22 @@ class AgingCoordinator:
                 threading.Thread(
                     target=self.chassis_monitor.run,
                     name="ChassisMonitor",
+                    daemon=True,
+                )
+            )
+        # 头部运动先于监控启动，保证上电确认期间独占链路
+        if self.options.run_head_motion:
+            threads.append(
+                threading.Thread(
+                    target=self._run_head_motion,
+                    name="HeadMotion",
+                )
+            )
+        if self.options.run_head_motion or self.options.monitor_only:
+            threads.append(
+                threading.Thread(
+                    target=self.head_monitor.run,
+                    name="HeadMonitor",
                     daemon=True,
                 )
             )
@@ -189,6 +263,9 @@ class AgingCoordinator:
                 self.report.event(
                     "ERROR", "上半身", "全局清理", "上半身急停失败", exc
                 )
+        if self.options.run_head_motion:
+            # 头部无独立急停接口：靠局部/全局停止事件打断等待并回零
+            self.head_stop_event.set()
 
     def _restore(self) -> None:
         if (
@@ -204,6 +281,31 @@ class AgingCoordinator:
             except Exception as exc:
                 self.report.event(
                     "ERROR", "上半身", "正常退出回零", "回零失败", exc
+                )
+        if (
+            not self.fatal_reason
+            and self.options.run_head_motion
+        ):
+            try:
+                self.head_device.go_zero(
+                    threading.Event(),
+                    self.options.head_timeout,
+                    force=True,
+                    speed=self.options.head_speed,
+                    tolerance=constants.HEAD_ANGLE_TOLERANCE,
+                )
+            except Exception as exc:
+                self.report.event(
+                    "ERROR", "头部", "正常退出回零", "回零失败", exc
+                )
+            try:
+                self.head_device.call(
+                    self.head_device.head.set_head_led_control,
+                    *constants.HEAD_LED_RESTORE,
+                )
+            except Exception as exc:
+                self.report.event(
+                    "ERROR", "头部", "恢复LED", "恢复 LED 失败", exc
                 )
         modes = self.upper_runner.original_fresh_modes
         if (
@@ -268,12 +370,20 @@ class AgingCoordinator:
             and self.options.run_chassis_motion
             else 0.0,
         )
+        self.report.count(
+            "运行",
+            "头部运动启用",
+            1.0 if self.options.run_head_motion else 0.0,
+        )
+        if self.head_stop_reason:
+            self.report.count("运行", "头部局部停止", 1.0)
 
     def _install_signal_handlers(self) -> None:
         def handle_signal(signum: int, _frame: Any) -> None:
             logger.info("收到系统信号 %s，准备停止", signum)
             self.shutdown_reason = "interrupt"
             self.stop_event.set()
+            self.head_stop_event.set()
 
         for name in ("SIGINT", "SIGTERM"):
             if hasattr(signal, name):
@@ -295,6 +405,7 @@ class AgingCoordinator:
                     self.shutdown_reason = "duration"
                     logger.info("达到设定运行时长，准备结束")
                     self.stop_event.set()
+                    self.head_stop_event.set()
                     break
                 if self._requested_motion_finished():
                     self.shutdown_reason = "completed"
@@ -305,6 +416,7 @@ class AgingCoordinator:
             self.shutdown_reason = "interrupt"
             logger.info("收到键盘中断，准备安全退出")
             self.stop_event.set()
+            self.head_stop_event.set()
         finally:
             try:
                 self._safe_stop()
