@@ -642,7 +642,7 @@ class UpperMotionRunner:
                 if self.stop_event.is_set():
                     return
                 self.set_fresh_mode("both", 0)
-                increment = -30.0 if joint_id == 4 else 30.0
+                increment = -5.0 if joint_id == 4 else 30.0
 
                 def operation(
                     api_owner: Any = api_owner,
@@ -668,14 +668,24 @@ class UpperMotionRunner:
                         side: float(actual[side][joint_id - 1])
                         for side in sides
                     }
+                    expected = {
+                        side: float(constants.ZERO_ANGLES[side][joint_id - 1])
+                        + increment
+                        for side in sides
+                    }
                     error = max(
-                        abs(value - increment) for value in values.values()
+                        abs(values[side] - expected[side]) for side in sides
                     )
                     return (
                         values, error,
                         error <= self.options.angle_tolerance, False,
                     )
 
+                expected_log = {
+                    side: float(constants.ZERO_ANGLES[side][joint_id - 1])
+                    + increment
+                    for side in (("left", "right") if target == "both" else (target,))
+                }
                 self._attempt(
                     "upper_jog_angle_increment",
                     target,
@@ -684,7 +694,7 @@ class UpperMotionRunner:
                         "increment": increment,
                         "speed": self.options.jog_speed,
                     },
-                    increment,
+                    expected_log,
                     operation,
                 )
                 logger.info(

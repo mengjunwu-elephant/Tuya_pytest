@@ -50,8 +50,6 @@ def test_upper_go_zero(device, upper_body, left_arm, right_arm, case):
         "right": (right_arm, "右臂"),
         "both": (upper_body, "双臂"),
     }[target]
-    zero_angles = list(TuyaRobotBase.UPPER_BODY_ZERO_ANGLES)
-
     logger.info(f">>>>>>>>>>用例【{title}】开始测试<<<<<<<<<<")
     logger.debug(f'test_api:{case["api"]}')
     logger.debug(f"target:{target}")
@@ -106,27 +104,34 @@ def test_upper_go_zero(device, upper_body, left_arm, right_arm, case):
                 device.wait_upper(timeout=30)
 
             angles = device.result_data(target_device.get_upper_angles())
-            allure.attach(str(zero_angles), name="期望零位角度", attachment_type=allure.attachment_type.TEXT)
+            left_zero = list(TuyaRobotBase.UPPER_BODY_ZERO_ANGLES["left"])
+            right_zero = list(TuyaRobotBase.UPPER_BODY_ZERO_ANGLES["right"])
+            allure.attach(
+                str({"left": left_zero, "right": right_zero}),
+                name="期望零位角度",
+                attachment_type=allure.attachment_type.TEXT,
+            )
             allure.attach(str(angles), name="实际回零角度", attachment_type=allure.attachment_type.TEXT)
             if target == "both":
                 assert isinstance(angles, dict) and set(angles) >= {"left", "right"}
                 assert_almost_equal(
                     list(angles["left"]),
-                    zero_angles,
+                    left_zero,
                     tol=TuyaRobotBase.angle_tolerance,
                     name="左臂回零角度",
                 )
                 assert_almost_equal(
                     list(angles["right"]),
-                    zero_angles,
+                    right_zero,
                     tol=TuyaRobotBase.angle_tolerance,
                     name="右臂回零角度",
                 )
             else:
+                expected_zero = left_zero if target == "left" else right_zero
                 assert isinstance(angles, (list, tuple)) and len(angles) == 8
                 assert_almost_equal(
                     list(angles),
-                    zero_angles,
+                    expected_zero,
                     tol=TuyaRobotBase.angle_tolerance,
                     name=f"{target_name}回零角度",
                 )

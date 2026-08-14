@@ -99,7 +99,10 @@ class TuyaRobotBase:
     angle_tolerance = 0.2
     coord_tolerance = 0.5
     head_speed = 40
-    UPPER_BODY_ZERO_ANGLES = (0.0,) * 8
+    UPPER_BODY_ZERO_ANGLES = {
+        "left": (0.0, 12.0, -90.0, -10.0, 90.0, 0.0, 0.0, 0.0),
+        "right": (0.0, 12.0, 90.0, -10.0, -90.0, 0.0, 0.0, 0.0),
+    }
     COORD_MOTION_INITIAL_ANGLES = {
         "left": (-89.99, 39.99, 0.0, -100.0, 0.0, 0.0, 0.02, 0.0),
         "right": (90.0, 39.99, 0.0, -100.0, 0.03, 0.0, 0.0, 0.0),
@@ -110,12 +113,12 @@ class TuyaRobotBase:
     }
     UPPER_BODY_JOINT_SOFT_LIMITS = {
         1: (-150.0, 176.0),
-        2: (-72.0, 125.0),
-        3: (-163.0, 167.0),
-        4: (-149.0, 1.0),
-        5: (-179.0, 148.0),
-        6: (-87.0, 42.0),
-        7: (-80.0, 92.0),
+        2: (-65.0, 110.0),
+        3: (-165.0, 165.0),
+        4: (-164.0, -10.0),
+        5: (-165.0, 165.0),
+        6: (-75.0, 45.0),
+        7: (-80.0, 75.0),
     }
     UPPER_BODY_COORD_SOFT_LIMITS = {
         1: (-650.0, 650.0),
@@ -169,10 +172,10 @@ class TuyaRobotBase:
     def go_zero(self, timeout: float = 30.0):
         """以已确认的零位关节角度驱动双臂回零并等待运动完成。"""
         result = self.robot.send_upper_angles(
-            self.UPPER_BODY_ZERO_ANGLES,
+            self.UPPER_BODY_ZERO_ANGLES["left"],
             self.speed,
             self.speed,
-            self.UPPER_BODY_ZERO_ANGLES,
+            self.UPPER_BODY_ZERO_ANGLES["right"],
             self.speed,
             self.speed,
             _async=False,
@@ -187,7 +190,7 @@ class TuyaRobotBase:
             raise ValueError(f"不支持的手臂标识: {arm_side!r}")
         arm = self.left_arm if arm_side == "left" else self.right_arm
         result = arm.send_upper_angles(
-            self.UPPER_BODY_ZERO_ANGLES,
+            self.UPPER_BODY_ZERO_ANGLES[arm_side],
             self.speed,
             self.speed,
             _async=False,

@@ -124,5 +124,5 @@ logger.info("✅ 异常断言通过,异常信息：%s", exc.value)
 
 1. 运行 `python -m compileall -q testcases`。
 2. 运行 `pytest testcases --collect-only -q`，确认无连接硬件即可收集。
-3. 当前数据基线为 120 个测试文件、157 个测试函数、1019 条参数化测试；有意修改 Excel 后同步更新基线。
+3. 当前数据基线为 120 个测试文件、157 个测试函数、1017 条参数化测试；有意修改 Excel 后同步更新基线。
 4. 真机执行必须显式启用根 `conftest.py` 定义的安全开关；不要在普通验证中运行硬件用例。

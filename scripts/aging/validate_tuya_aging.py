@@ -265,8 +265,8 @@ class FakeUpperDevice:
     def __init__(self) -> None:
         self.events: list[tuple[Any, ...]] = []
         self.angles = {
-            "left": constants.ZERO_ANGLES,
-            "right": constants.ZERO_ANGLES,
+            "left": constants.ZERO_ANGLES["left"],
+            "right": constants.ZERO_ANGLES["right"],
         }
         self.coords = dict(constants.COORD_INITIAL_COORDS)
         self.left_arm = FakeArm(self, "left")
@@ -298,8 +298,8 @@ class FakeUpperDevice:
     def go_zero(self, *_args: Any, **_kwargs: Any) -> None:
         self.events.append(("zero",))
         self.angles = {
-            "left": constants.ZERO_ANGLES,
-            "right": constants.ZERO_ANGLES,
+            "left": constants.ZERO_ANGLES["left"],
+            "right": constants.ZERO_ANGLES["right"],
         }
 
     def move_to_coord_initial_pose(
@@ -632,12 +632,19 @@ class ArchitectureTests(unittest.TestCase):
             constants.JOINT_SOFT_LIMITS,
             {
                 1: (-150.0, 176.0),
-                2: (-72.0, 125.0),
-                3: (-163.0, 167.0),
-                4: (-149.0, 1.0),
-                5: (-179.0, 148.0),
-                6: (-87.0, 42.0),
-                7: (-80.0, 92.0),
+                2: (-65.0, 110.0),
+                3: (-165.0, 165.0),
+                4: (-164.0, -10.0),
+                5: (-165.0, 165.0),
+                6: (-75.0, 45.0),
+                7: (-80.0, 75.0),
+            },
+        )
+        self.assertEqual(
+            constants.ZERO_ANGLES,
+            {
+                "left": (0.0, 12.0, -90.0, -10.0, 90.0, 0.0, 0.0, 0.0),
+                "right": (0.0, 12.0, 90.0, -10.0, -90.0, 0.0, 0.0, 0.0),
             },
         )
         self.assertEqual(

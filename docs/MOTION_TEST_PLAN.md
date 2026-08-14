@@ -24,8 +24,8 @@
 
 - `send_upper_angle` 同时验证刷新模式 `1` 和插补模式 `0`。左右单臂分别覆盖 J1～J7 普通角度及软件限位；双臂覆盖 J1～J7 正负 10°，不执行双臂软件限位。
 - 所有刷新模式运动（`send_upper_angle`、`send_upper_angles`、`send_upper_coord`、`send_upper_coords` 及刷新模式 Jog 不支持验证）均在模式回读后显式启用 `set_upper_motion_async(True)`；插补模式显式设置为 `False`。发送用例在清理时恢复原默认异步状态，Jog 不支持验证恢复模块约定的插补同步状态。
-- 公共回零统一经 `TuyaRobotBase.go_zero()` 或 `go_arm_zero()` 下发已确认的 `[0, 0, 0, 0, 0, 0, 0, 0]` 零位关节角度，调用 SDK `send_upper_angles`，不使用 SDK `upper_go_zero()`；发送后仍以 `wait_upper(timeout=...)` 确认停止。
-- 为防止关节目标叠加成未经确认的组合姿态，每条 `send_upper_angle` 关节用例结束后回到 `[0, 0, 0, 0, 0, 0, 0, 0]`，模块结束固定恢复双臂插补模式 `0`。回零速度统一使用 `TuyaRobotBase.speed`。
+- 公共回零统一经 `TuyaRobotBase.go_zero()` 或 `go_arm_zero()` 下发已确认的左右臂零位偏移角（左 `(0, 12, -90, -10, 90, 0, 0, 0)`，右 `(0, 12, 90, -10, -90, 0, 0, 0)`），调用 SDK `send_upper_angles`，不使用 SDK `upper_go_zero()`；发送后仍以 `wait_upper(timeout=...)` 确认停止。
+- 为防止关节目标叠加成未经确认的组合姿态，每条 `send_upper_angle` 关节用例结束后回到左右臂零位偏移角，模块结束固定恢复双臂插补模式 `0`。回零速度统一使用 `TuyaRobotBase.speed`。
 - 关节速度合法值：`1、10、20、100`。
 - 关节速度非法值：`0、101`。
 - J1～J7 软件限位：
@@ -46,7 +46,7 @@
 - `upper_jog_angle` 分别调用左臂、右臂和双臂正式接口，覆盖 J1～J7 的正向和负向运动，并以对应软件限位为期望值；双臂不覆盖 J2 正向。
 - 每条关节 Jog 运动用例先设置双臂插补模式 `0` 并调用 `device.go_zero()`；左/右臂 J2 正向前先将该臂 `send_upper_angle(1, 50°)` 到位；异步下发 Jog 后等待其在软件限位自行停止并回读角度，在 `finally` 中直接回零，不额外调用 `upper_stop()`。
 - 刷新模式 `1` 不支持连续 Jog 与步进 Jog；`upper_jog_angle`、`upper_jog_coord`、`upper_jog_angle_increment`、`upper_jog_coord_increment` 各保留一条左臂调用验证：返回失败 `CommandResult`（提示切换插补模式），结束后恢复双臂插补模式并回零。
-- `upper_jog_angle_increment` 正常用例共 21 条：左臂、右臂和双臂分别覆盖 J1～J7，每条从零位执行单关节 30° 步进，J4 因正向软件限位仅为 `1°`而使用 `-30°`；同步等待到位、回读角度，并在 `finally` 中回零。
+- `upper_jog_angle_increment` 正常用例共 21 条：左臂、右臂和双臂分别覆盖 J1～J7，每条从零位执行单关节 30° 步进，J4 因零位已贴正向软件限位 `-10°` 而仅使用相对 `-5°`；同步等待到位、回读角度，并在 `finally` 中回零。
 - 关节步进超限共 42 条：按各关节 `|负限位| + |正限位|` 得到完整行程，再分别使用 `-(完整行程+1°)` 和 `完整行程+1°`，覆盖左臂、右臂和双臂。用例不增加 SDK 预校验或跳过逻辑，按公开接口正常调用，并启用 `motion + manual + danger`。
 - `upper_jog_coord` 单臂正常用例共 24 条，左右臂分别覆盖六个坐标轴正负向；双臂正常用例只覆盖 Z 轴正负向 2 条。单臂仅移动目标臂到坐标初始点位，双臂移动双臂。结束态以 Excel 与实机为准：业务返回 `0` 的用例只断言返回值；失败 `CommandResult` 分别断言 `32`“坐标无解”或 `33`“直线运动无相邻解”，后者读取停止坐标后回零；不按坐标软件限位断言。
 - `upper_jog_coord_increment` 正常用例共 13 条：左右单臂分别覆盖六轴步进 30 mm/30°，双臂只覆盖 Z 轴步进 30 mm；单臂仅移动目标臂到坐标初始点位，完成回读后回零。

@@ -74,12 +74,28 @@ def test_upper_jog_angle_increment(device, upper_body, left_arm, right_arm, case
             assert isinstance(actual, dict) and set(actual) >= {"left", "right"}
             assert isinstance(actual["left"], (list, tuple)) and len(actual["left"]) == 8
             assert isinstance(actual["right"], (list, tuple)) and len(actual["right"]) == 8
-            allure.attach(str(increment), name="期望关节角度", attachment_type=allure.attachment_type.TEXT)
+            expected_left = TuyaRobotBase.UPPER_BODY_ZERO_ANGLES["left"][joint_id - 1] + increment
+            expected_right = TuyaRobotBase.UPPER_BODY_ZERO_ANGLES["right"][joint_id - 1] + increment
+            allure.attach(
+                str({"left": expected_left, "right": expected_right}),
+                name="期望关节角度",
+                attachment_type=allure.attachment_type.TEXT,
+            )
             allure.attach(str(actual), name="双臂实际角度", attachment_type=allure.attachment_type.TEXT)
             if target in ("left", "both"):
-                assert_almost_equal(actual["left"][joint_id - 1], increment, tol=TuyaRobotBase.angle_tolerance, name=f"左臂J{joint_id}步进运动")
+                assert_almost_equal(
+                    actual["left"][joint_id - 1],
+                    expected_left,
+                    tol=TuyaRobotBase.angle_tolerance,
+                    name=f"左臂J{joint_id}步进运动",
+                )
             if target in ("right", "both"):
-                assert_almost_equal(actual["right"][joint_id - 1], increment, tol=TuyaRobotBase.angle_tolerance, name=f"右臂J{joint_id}步进运动")
+                assert_almost_equal(
+                    actual["right"][joint_id - 1],
+                    expected_right,
+                    tol=TuyaRobotBase.angle_tolerance,
+                    name=f"右臂J{joint_id}步进运动",
+                )
     finally:
         with allure.step("在用例结束后回到双臂零位"):
             device.go_zero()

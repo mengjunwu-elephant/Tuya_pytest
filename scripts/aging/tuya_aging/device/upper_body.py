@@ -119,7 +119,10 @@ class UpperBodyDevice:
         actual = self.call(self.upper_body.get_upper_angles)
         self.assert_dual_vectors(
             actual,
-            {"left": constants.ZERO_ANGLES, "right": constants.ZERO_ANGLES},
+            {
+                "left": constants.ZERO_ANGLES["left"],
+                "right": constants.ZERO_ANGLES["right"],
+            },
             constants.ANGLE_TOLERANCE,
             "双臂回零",
         )

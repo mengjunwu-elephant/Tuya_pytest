@@ -35,7 +35,7 @@ description: >-
 - `upper_jog_angle` 每条运动用例先设置双臂插补模式 `0` 并调用 `device.go_zero()`；Jog 自行运动到软件限位并停止，回读确认限位后在 `finally` 中直接回零，不额外调用 `upper_stop()`；同时覆盖左臂、右臂和双臂。坐标 Jog 使用统一的已确认坐标运动初始关节姿态，不从 Excel 读取预备角度。
 - 刷新模式 `1` 不支持 Jog；`upper_jog_angle`、`upper_jog_coord`、`upper_jog_angle_increment`、`upper_jog_coord_increment` 各保留一条验证：返回失败 `CommandResult`（`ok=False`，消息含“刷新模式无法使用JOG运动”），结束后恢复双臂插补模式并回零。
 - Jog 到软限位使用 `motion + manual + danger`，逐关节/坐标轴执行。
-- `upper_jog_angle_increment` 分别覆盖左臂、右臂和双臂 J1～J7；每条正常用例从零位执行单关节 30° 步进，J4 使用 `-30°`，回读后在 `finally` 中回零。
+- `upper_jog_angle_increment` 分别覆盖左臂、右臂和双臂 J1～J7；每条正常用例从零位执行单关节 30° 步进，J4 使用 `-5°`，回读后在 `finally` 中回零。
 - 关节增量超限值按 `|负限位| + |正限位| + 1°` 生成正负值，保留 `motion + manual + danger` 并通过公开接口正常下发；当前 SDK 缺少增量幅度校验，不在测试中增加跳过、预校验或其他规避逻辑。
 - `upper_jog_coord` 单臂正常用例覆盖六轴正负向，双臂正常用例只覆盖 Z 轴正负向；单臂通过 `device.move_to_coord_initial_pose(arm_side)` 只移动目标臂，双臂通过无参调用移动双臂。结束态以 Excel 为准：业务返回 `0` 的用例只断言返回值；失败 `CommandResult` 按实机分别断言 `32`“坐标无解”或 `33`“直线运动无相邻解”，后者读取停止坐标后在 `finally` 中回零；不按坐标软件限位断言。
 - `upper_jog_coord_increment` 单臂正常用例覆盖六轴步进 30 mm/30°，双臂正常用例只覆盖 Z 轴步进 30 mm；回读增量结果后在 `finally` 中回零。超限值按 `|负限位| + |正限位| + 1` 生成正负值，使用 `motion + manual + danger` 并通过公开接口正常下发，不增加 SDK 幅度校验规避逻辑。
@@ -75,5 +75,5 @@ description: >-
 1. 静态遍历 Excel 异常行，调用 SDK validation 函数验证具体参数异常。
 2. 运行 `python -m compileall -q testcases`。
 3. 运行 `pytest testcases --collect-only -q`，不得开启真机门控。
-4. 更新规则和技能中的收集基线；当前基线为 120 个测试文件、157 个测试函数、1019 条参数化测试。
+4. 更新规则和技能中的收集基线；当前基线为 120 个测试文件、157 个测试函数、1017 条参数化测试。
 5. 只有用户明确授权后，才逐条开启真机及运动门控。

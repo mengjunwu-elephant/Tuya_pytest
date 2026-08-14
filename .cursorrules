@@ -59,7 +59,7 @@ alwaysApply: true
 - 运动方案未得到用户明确确认前，不得创建测试文件或修改 Excel。
 - URDF、DH 和单轴限位不能单独证明双臂无自碰；未确认的避让姿态、完整角度和绝对坐标必须留空并显式跳过，禁止猜值或补零。
 - Jog 使用 `0` 负向、`1` 正向；`upper_jog_angle` 分别测试左臂、右臂和双臂，每条运动用例前后均调用 `device.go_zero()`；Jog 到软件限位自行停止并完成角度回读后直接回零，不额外调用 `upper_stop()`。软限位 Jog 启用 `motion + manual + danger`。刷新模式不支持 Jog；`upper_jog_angle`、`upper_jog_coord`、`upper_jog_angle_increment`、`upper_jog_coord_increment` 各验证一条返回失败 `CommandResult`（提示切换插补模式），结束后恢复插补模式并回零。
-- `upper_jog_angle_increment` 覆盖左臂、右臂和双臂 J1～J7；正常用例从零位单关节步进 30°，J4 使用 `-30°`，回读后回零。超限增量按 `|负限位| + |正限位| + 1°` 生成正负值并通过公开接口正常下发，启用 `motion + manual + danger`，不为 SDK 当前缺少幅度校验增加用例内规避逻辑。
+- `upper_jog_angle_increment` 覆盖左臂、右臂和双臂 J1～J7；正常用例从零位单关节步进 30°，J4 使用 `-5°`，回读后回零。超限增量按 `|负限位| + |正限位| + 1°` 生成正负值并通过公开接口正常下发，启用 `motion + manual + danger`，不为 SDK 当前缺少幅度校验增加用例内规避逻辑。
 - `upper_jog_coord` 单臂正常用例覆盖六轴正负向，双臂正常用例只覆盖 Z 轴正负向；单臂只移动目标臂到坐标初始点位。结束态以 Excel 为准：业务返回 `0` 的用例只断言返回值；失败 `CommandResult` 按实机分别断言 `32`“坐标无解”或 `33`“直线运动无相邻解”，后者读取停止坐标后回零；不断言坐标软件限位。
 - `upper_jog_coord_increment` 单臂正常用例覆盖六轴步进 30 mm/30°，双臂正常用例只覆盖 Z 轴步进 30 mm；超限值按完整坐标行程再加 1 生成正负值并正常下发，启用 `motion + manual + danger`。单臂只移动目标臂到初始点位，所有运动用例结束后回零。
 - 已确认的零位角度、关节/坐标软件限位等跨用例运动常量统一定义为 `TuyaRobotBase` 类属性，测试文件只引用，不重复硬编码。
@@ -76,7 +76,7 @@ alwaysApply: true
 
 - 修改测试后运行 `python -m compileall -q testcases`。
 - 修改测试、Excel、fixture 或连接配置后运行 `pytest testcases --collect-only -q`。
-- 当前基线为 120 个测试文件、157 个测试函数、1019 条参数化测试；有意修改 Excel 或收集范围时同步更新规则与技能中的基线。
+- 当前基线为 120 个测试文件、157 个测试函数、1017 条参数化测试；有意修改 Excel 或收集范围时同步更新规则与技能中的基线。
 - 修改连接或会话参数后运行 `pytest --help`，确认 TuyaRobot CLI 仍可见。
 - 不在常规验证中运行真实硬件测试。
 

@@ -27,7 +27,8 @@ from settings import TuyaRobotBase, TuyaConnectionConfig
 TOOLS_DIR = Path(__file__).resolve().parent
 DEFAULT_PARAM_FILE = TOOLS_DIR / "upper_body_response_time.xlsx"
 REPORT_SHEET_NAME = "python接口响应时间"
-ZERO_ANGLES = list(TuyaRobotBase.UPPER_BODY_ZERO_ANGLES)
+LEFT_ZERO_ANGLES = list(TuyaRobotBase.UPPER_BODY_ZERO_ANGLES["left"])
+RIGHT_ZERO_ANGLES = list(TuyaRobotBase.UPPER_BODY_ZERO_ANGLES["right"])
 SPEED = int(TuyaRobotBase.speed)
 
 # 占位符：脚本在 go_zero 后用实机回读坐标替换
@@ -79,7 +80,7 @@ API_ROWS: list[tuple[str, str, Any, str]] = [
         "send_upper_angles",
         "both",
         {
-            "args": [ZERO_ANGLES, SPEED, SPEED, ZERO_ANGLES, SPEED, SPEED],
+            "args": [LEFT_ZERO_ANGLES, SPEED, SPEED, RIGHT_ZERO_ANGLES, SPEED, SPEED],
             "kwargs": {"_async": True},
         },
         "双臂零位发令_只测RTT",

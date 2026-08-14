@@ -64,7 +64,7 @@ pytest CLI 显式参数 > 环境变量 > TuyaConnectionConfig 默认值
 - 集中创建并暴露 `robot`、`upper_body`、`left_arm`、`right_arm`、`head`、`chassis`。
 - 公共恢复速度 `speed = 20`。
 - 角度回读容差 `angle_tolerance = 0.1`，坐标回读容差 `coord_tolerance = 0.1`。
-- 上半身整臂零位 `UPPER_BODY_ZERO_ANGLES`。
+- 上半身左右臂零位偏移 `UPPER_BODY_ZERO_ANGLES`（`left` / `right`）。
 - 双臂整臂回零使用 `TuyaRobotBase.go_zero()`；设置参数后的公共默认恢复动作同样集中在 `TuyaRobotBase`。
 - 坐标运动前通过 `TuyaRobotBase.move_to_coord_initial_pose()` 将双臂移动到已确认的初始关节姿态；单臂坐标 Jog/步进传入 `left` 或 `right`，只移动目标臂。
 - 初始姿态会按 `COORD_MOTION_INITIAL_COORDS` 回读校验；`send_upper_coord` 仅测试左右单臂在刷新和插补模式下的各轴正负运动。每条用例先进入初始姿态，再设置并回读模式，结束后双臂回零；模块结束固定恢复插补模式。
@@ -128,7 +128,7 @@ pytest CLI 显式参数 > 环境变量 > TuyaConnectionConfig 默认值
 3. 每条关节用例在 `finally` 中回零，避免目标叠加成未经确认的组合姿态。
 4. 模块全部用例结束后固定恢复双臂插补模式 `0`。
 
-整臂回零使用 `TuyaRobotBase.UPPER_BODY_ZERO_ANGLES` 和 `TuyaRobotBase.speed`。
+整臂回零使用 `TuyaRobotBase.UPPER_BODY_ZERO_ANGLES`（左右臂各自偏移角）和 `TuyaRobotBase.speed`。
 
 ## 安全门控
 
