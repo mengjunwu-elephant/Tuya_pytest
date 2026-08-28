@@ -319,6 +319,7 @@ class FakeUpperDevice:
         expected: Any,
         _tolerance: float,
         _name: str,
+        **_kwargs: Any,
     ) -> float:
         for side, target in expected.items():
             if tuple(actual[side]) != tuple(target):

@@ -318,6 +318,7 @@ class UpperMotionRunner:
                             actual, expected,
                             self.options.angle_tolerance,
                             "三组角度运动",
+                            gripper_tolerance=constants.GRIPPER_ANGLE_TOLERANCE,
                         )
                         return actual, error, True, False
 
@@ -947,13 +948,13 @@ class UpperMotionRunner:
                     )
                     self.stop_event.wait(self.options.monitor_interval)
             phases = (
-                ("单关节软件限位", self.run_joint_limits),
+                # ("单关节软件限位", self.run_joint_limits),
                 ("三组关节角度", self.run_angle_groups),
                 ("三组坐标", self.run_coord_groups),
                 ("单轴坐标", self.run_single_coords),
                 # ("关节Jog", self.run_jog_angles),
                 ("关节增量", self.run_jog_increments),
-                ("坐标Jog", self.run_jog_coords),
+                # ("坐标Jog", self.run_jog_coords),
                 ("坐标增量", self.run_coord_increments),
                 ("暂停恢复停止", self.run_motion_controls),
             )

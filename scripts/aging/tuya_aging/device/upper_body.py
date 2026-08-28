@@ -117,12 +117,24 @@ class UpperBodyDevice:
             stop_event, timeout, allow_global_stop=force
         )
         actual = self.call(self.upper_body.get_upper_angles)
+        # upper_go_zero 只回 J1～J7；夹爪 J8 不参与回零断言
+        expected = {
+            "left": constants.ZERO_ANGLES["left"][:7],
+            "right": constants.ZERO_ANGLES["right"][:7],
+        }
+        if not isinstance(actual, dict):
+            raise AgingError(f"双臂回零回读类型错误: {actual!r}")
+        actual_joints = {}
+        for side in expected:
+            if side not in actual:
+                raise AgingError(f"双臂回零回读缺少 {side}: {actual!r}")
+            joints = actual[side]
+            if not isinstance(joints, (list, tuple)) or len(joints) < 7:
+                raise AgingError(f"双臂回零{side}角度长度错误: {joints!r}")
+            actual_joints[side] = list(joints[:7])
         self.assert_dual_vectors(
-            actual,
-            {
-                "left": constants.ZERO_ANGLES["left"],
-                "right": constants.ZERO_ANGLES["right"],
-            },
+            actual_joints,
+            expected,
             constants.ANGLE_TOLERANCE,
             "双臂回零",
         )
@@ -187,6 +199,8 @@ class UpperBodyDevice:
         expected: dict[str, Sequence[float]],
         tolerance: float,
         name: str,
+        *,
+        gripper_tolerance: float | None = None,
     ) -> float:
         if not isinstance(actual, dict):
             raise AgingError(f"{name}回读类型错误: {actual!r}")
@@ -194,12 +208,29 @@ class UpperBodyDevice:
         for side, target in expected.items():
             if side not in actual:
                 raise AgingError(f"{name}回读缺少 {side}: {actual!r}")
-            error = cls.vector_error(actual[side], target)
-            maximum = max(maximum, error)
-            if error > tolerance:
+            values = actual[side]
+            if not isinstance(values, (list, tuple)) or len(values) != len(target):
                 raise AgingError(
-                    f"{name}{side}未到位，最大偏差 {error:.3f}，"
-                    f"容差 {tolerance:g}，期望 {list(target)!r}，"
-                    f"实际 {actual[side]!r}"
+                    f"运动回读结构错误，期望长度 {len(target)}，实际 {values!r}"
                 )
+            errors = [
+                abs(float(value) - float(want))
+                for value, want in zip(values, target)
+            ]
+            error = max(errors) if errors else 0.0
+            maximum = max(maximum, error)
+            for index, joint_error in enumerate(errors):
+                joint_tol = tolerance
+                if (
+                    gripper_tolerance is not None
+                    and len(target) == 8
+                    and index == 7
+                ):
+                    joint_tol = gripper_tolerance
+                if joint_error > joint_tol:
+                    raise AgingError(
+                        f"{name}{side}未到位，最大偏差 {error:.3f}，"
+                        f"J{index + 1}偏差 {joint_error:.3f}（容差 {joint_tol:g}），"
+                        f"期望 {list(target)!r}，实际 {values!r}"
+                    )
         return maximum
