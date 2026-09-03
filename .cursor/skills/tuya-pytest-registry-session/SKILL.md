@@ -26,7 +26,7 @@ description: >-
 | 子系统 | CLI | 环境变量 | 默认值 |
 |---|---|---|---|
 | 上半身 | `--tuya-ip` / `--tuya-port` | `TUYA_ROBOT_IP` / `TUYA_ROBOT_PORT` | `192.168.0.232:6500` |
-| 头部 | `--head-port` / `--head-baud` / `--connect-head` | `TUYA_HEAD_PORT` / `TUYA_HEAD_BAUD` / `TUYA_HEAD_AUTO_CONNECT` | `COM4 / 115200 / false` |
+| 头部 | `--head-ip` / `--head-port` / `--connect-head` | `TUYA_HEAD_IP` / `TUYA_HEAD_PORT` / `TUYA_HEAD_AUTO_CONNECT` | `192.168.0.231 / 6501 / false` |
 | 底盘 | `--chassis-port` / `--chassis-baud` / `--no-connect-chassis` | `TUYA_CHASSIS_PORT` / `TUYA_CHASSIS_BAUD` / `TUYA_CHASSIS_AUTO_CONNECT` | `COM16 / 2000000 / true` |
 
 其余环境变量为 `TUYA_APPLY_LIMITS_ON_INIT`、`TUYA_DEBUG`、`TUYA_PLAIN_RETURN`。布尔值接受 `1/true/yes/on`；非法整数回退默认值。
@@ -37,7 +37,7 @@ description: >-
 
 - `device` 为 session scope，只构造一次 `TuyaRobotBase`，会话结束调用一次 `dev.close()`。
 - `robot`、`upper_body`、`left_arm`、`right_arm` 直接返回 `device` 上的对应对象。
-- `head` 在 `device.head.enabled` 为假时跳过。
+- `head` 在 `device.head.enabled` 为假时跳过；`testcases/head/conftest.py` 会覆盖它，以 `Head` 建立不依赖整机的独立 TCP 连接。
 - `chassis` 在 `device.chassis.enabled` 为假时跳过。
 - `testcases/upper_body/conftest.py` 定义 function 级自动 fixture：每条上半身测试前读取双臂上电状态，仅在状态不是 `[1, 1]` 时调用 `upper_power_on()`，并在 30 秒内轮询确认；复用根 `device`，不得新建或关闭连接。上半身测试文件不得重复检查上电状态。
 - 除上述上半身公共前置上电外，不把接口专属校准、参数初始化或恢复时机加入 session fixture；可复用的整臂回零和设置参数后的默认恢复动作封装为 `TuyaRobotBase` 方法，由对应测试文件或 function 级 fixture 调用。

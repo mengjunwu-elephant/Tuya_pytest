@@ -16,8 +16,8 @@ from qt_platform.test_discovery import DomainModuleRow
 class ConnectionParams:
     ip: str
     upper_port: str
+    head_ip: str
     head_port: str
-    head_baud: str
     chassis_port: str
     chassis_baud: str
 
@@ -87,10 +87,10 @@ def build_pytest_args(
             conn.ip,
             "--tuya-port",
             conn.upper_port,
+            "--head-ip",
+            conn.head_ip,
             "--head-port",
             conn.head_port,
-            "--head-baud",
-            conn.head_baud,
             "--chassis-port",
             conn.chassis_port,
             "--chassis-baud",
@@ -126,10 +126,10 @@ def build_probe_args(
         conn.ip,
         "--port",
         conn.upper_port,
+        "--head-ip",
+        conn.head_ip,
         "--head-port",
         conn.head_port,
-        "--head-baud",
-        conn.head_baud,
         "--chassis-port",
         conn.chassis_port,
         "--chassis-baud",

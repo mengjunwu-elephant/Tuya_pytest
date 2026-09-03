@@ -22,6 +22,7 @@ CASES_DIR = {
     "1": "testcases/robot",
     "2": "testcases/upper_body",
     "3": "testcases/chassis",
+    "4": "testcases/head",
 }
 
 LOG_CONFIG = {
@@ -54,8 +55,8 @@ def _env_int(name: str, default: int) -> int:
 class TuyaConnectionConfig:
     upper_ip: str = "192.168.0.232"
     upper_port: int = 6500
-    head_port: str = "COM4"
-    head_baud: int = 115200
+    head_ip: str = "192.168.0.231"
+    head_port: int = 6501
     chassis_port: str = "COM16"
     chassis_baud: int = 2_000_000
     head_auto_connect: bool = False
@@ -70,9 +71,9 @@ class TuyaConnectionConfig:
             upper_ip=os.environ.get("TUYA_ROBOT_IP", cls.upper_ip).strip()
             or cls.upper_ip,
             upper_port=_env_int("TUYA_ROBOT_PORT", cls.upper_port),
-            head_port=os.environ.get("TUYA_HEAD_PORT", cls.head_port).strip()
-            or cls.head_port,
-            head_baud=_env_int("TUYA_HEAD_BAUD", cls.head_baud),
+            head_ip=os.environ.get("TUYA_HEAD_IP", cls.head_ip).strip()
+            or cls.head_ip,
+            head_port=_env_int("TUYA_HEAD_PORT", cls.head_port),
             chassis_port=os.environ.get(
                 "TUYA_CHASSIS_PORT", cls.chassis_port
             ).strip()
@@ -138,14 +139,15 @@ class TuyaRobotBase:
     ROBOT_TEST_DATA_FILE = ROBOT_TEST_DATA_FILE
     UPPER_BODY_TEST_DATA_FILE = UPPER_BODY_TEST_DATA_FILE
     CHASSIS_TEST_DATA_FILE = CHASSIS_TEST_DATA_FILE
+    HEAD_TEST_DATA_FILE = os.path.join(BASE_DIR, "test_data", "head.xlsx")
 
     def __init__(self, config: Optional[TuyaConnectionConfig] = None) -> None:
         self.config = config or TuyaConnectionConfig.from_env()
         self.robot = TuyaRobot(
             self.config.upper_ip,
             self.config.upper_port,
+            head_ip=self.config.head_ip,
             head_port=self.config.head_port,
-            # head_baud=self.config.head_baud,
             chassis_port=self.config.chassis_port,
             chassis_baud=self.config.chassis_baud,
             head_auto_connect=self.config.head_auto_connect,

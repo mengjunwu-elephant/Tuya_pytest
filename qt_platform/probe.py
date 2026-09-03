@@ -12,8 +12,8 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--ip", default=defaults.upper_ip)
     parser.add_argument("--port", type=int, default=defaults.upper_port)
-    parser.add_argument("--head-port", default=defaults.head_port)
-    parser.add_argument("--head-baud", type=int, default=defaults.head_baud)
+    parser.add_argument("--head-ip", default=defaults.head_ip)
+    parser.add_argument("--head-port", type=int, default=defaults.head_port)
     parser.add_argument("--chassis-port", default=defaults.chassis_port)
     parser.add_argument("--chassis-baud", type=int, default=defaults.chassis_baud)
     parser.add_argument("--connect-head", action="store_true")
@@ -24,22 +24,11 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    if (
-        args.connect_head
-        and not args.no_connect_chassis
-        and args.head_port.strip().upper() == args.chassis_port.strip().upper()
-    ):
-        print(
-            "警告：头部与底盘使用同一串口 "
-            f"{args.head_port!r}，二者不能同时占用；"
-            "请将底盘改为独立口（默认 COM16）或取消连接头部。"
-        )
-
     config = TuyaConnectionConfig(
         upper_ip=args.ip,
         upper_port=args.port,
+        head_ip=args.head_ip,
         head_port=args.head_port,
-        head_baud=args.head_baud,
         chassis_port=args.chassis_port,
         chassis_baud=args.chassis_baud,
         head_auto_connect=args.connect_head,
@@ -55,7 +44,10 @@ def main() -> None:
         print(f"上半身: robot_type={robot_type!r} version={version!r}")
 
         head_ok = bool(getattr(device.head, "enabled", False))
-        print(f"头部串口: enabled={head_ok} port={args.head_port!r}")
+        print(
+            f"头部 TCP: enabled={head_ok} "
+            f"ip={args.head_ip!r} port={args.head_port}"
+        )
 
         chassis_ok = bool(getattr(device.chassis, "enabled", False))
         print(

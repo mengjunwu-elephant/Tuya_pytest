@@ -132,8 +132,8 @@ class MainWindow(QMainWindow):
         defaults = TuyaConnectionConfig.from_env()
         self.ip = QLineEdit(defaults.upper_ip)
         self.upper_port = QLineEdit(str(defaults.upper_port))
-        self.head_port = QLineEdit(defaults.head_port)
-        self.head_baud = QLineEdit(str(defaults.head_baud))
+        self.head_ip = QLineEdit(defaults.head_ip)
+        self.head_port = QLineEdit(str(defaults.head_port))
         self.chassis_port = QLineEdit(defaults.chassis_port)
         self.chassis_baud = QLineEdit(str(defaults.chassis_baud))
         self.connect_head = QCheckBox("连接头部")
@@ -207,8 +207,8 @@ class MainWindow(QMainWindow):
         form = QFormLayout(conn_box)
         form.addRow("上半身 IP", self.ip)
         form.addRow("上半身端口", self.upper_port)
-        form.addRow("头部串口", self.head_port)
-        form.addRow("头部波特率", self.head_baud)
+        form.addRow("头部 IP", self.head_ip)
+        form.addRow("头部 TCP 端口", self.head_port)
         form.addRow("底盘串口", self.chassis_port)
         form.addRow("底盘波特率", self.chassis_baud)
         right_layout.addWidget(conn_box)
@@ -477,8 +477,8 @@ class MainWindow(QMainWindow):
         return ConnectionParams(
             ip=self.ip.text().strip(),
             upper_port=self.upper_port.text().strip(),
+            head_ip=self.head_ip.text().strip(),
             head_port=self.head_port.text().strip(),
-            head_baud=self.head_baud.text().strip(),
             chassis_port=self.chassis_port.text().strip(),
             chassis_baud=self.chassis_baud.text().strip(),
         )
@@ -515,22 +515,6 @@ class MainWindow(QMainWindow):
         check = validate_gates(summary, gates)
         if not check.ok:
             QMessageBox.warning(self, "无法启动", check.message)
-            return
-
-        same_port = (
-            gates.connect_head
-            and gates.connect_chassis
-            and self.head_port.text().strip().upper()
-            == self.chassis_port.text().strip().upper()
-        )
-        if same_port:
-            QMessageBox.warning(
-                self,
-                "串口冲突",
-                "头部与底盘不能使用同一串口。"
-                f"当前均为 {self.head_port.text().strip()!r}，"
-                "请将底盘改为独立串口（默认 COM16），或取消连接头部。",
-            )
             return
 
         allure_dir: Path | None = None
@@ -577,20 +561,6 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "提示", "已有进程正在运行")
             return
         gates = self._gate_state()
-        if (
-            gates.connect_head
-            and gates.connect_chassis
-            and self.head_port.text().strip().upper()
-            == self.chassis_port.text().strip().upper()
-        ):
-            QMessageBox.warning(
-                self,
-                "串口冲突",
-                "头部与底盘不能使用同一串口。"
-                f"当前均为 {self.head_port.text().strip()!r}，"
-                "请将底盘改为独立串口（默认 COM16），或取消连接头部后再探测。",
-            )
-            return
         args = build_probe_args(
             self._connection_params(),
             connect_head=gates.connect_head,
