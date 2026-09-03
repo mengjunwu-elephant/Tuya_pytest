@@ -22,7 +22,7 @@ DOMAIN_LABELS: dict[str, str] = {
 }
 GATE_MARKERS: frozenset[str] = frozenset({"motion", "manual", "danger", "firmware"})
 DOMAIN_MARKERS: frozenset[str] = frozenset({"head", "upper_body", "chassis"})
-_SCAN_ROOTS: tuple[str, ...] = ("testcases/upper_body", "testcases/chassis")
+_SCAN_ROOTS: tuple[str, ...] = ("testcases/head", "testcases/upper_body", "testcases/chassis")
 GATE_HINTS: dict[str, str] = {
     "motion": "运动",
     "manual": "人工",
@@ -325,7 +325,7 @@ def discover_grouped_for_arm(
 
 def discover_by_domain(project_root: Path) -> DiscoverResult:
     """
-    扫描上半身与底盘目录，按 pytest.mark 拆成头部 / 上半身 / 底盘。
+    扫描头部、上半身与底盘目录，按 pytest.mark 拆成头部 / 上半身 / 底盘。
     无域 marker 的文件进入 unmarked_paths，不进入三域树。
     """
     project_root = project_root.resolve()
