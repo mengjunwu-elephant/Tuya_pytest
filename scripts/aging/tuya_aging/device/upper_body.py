@@ -32,6 +32,9 @@ class UpperBodyDevice:
     def call(self, func: Any, *args: Any, **kwargs: Any) -> Any:
         return self.gateway.upper(func, *args, **kwargs)
 
+    def upper_session(self) -> Any:
+        return self.gateway.upper_session()
+
     def blocking_jog_call(
         self, func: Any, *args: Any, **kwargs: Any
     ) -> dict[str, Any]:
@@ -52,6 +55,7 @@ class UpperBodyDevice:
         timeout: float,
         *,
         allow_global_stop: bool = False,
+        require_observed_motion: bool = False,
     ) -> None:
         started = time.monotonic()
         deadline = started + timeout
@@ -84,10 +88,17 @@ class UpperBodyDevice:
                 idle_count += 1
                 if idle_count >= self.MOTION_IDLE_CONFIRMATIONS:
                     break
-            elif time.monotonic() - started >= self.MOTION_STARTUP_GRACE:
+            elif (
+                not require_observed_motion
+                and time.monotonic() - started >= self.MOTION_STARTUP_GRACE
+            ):
                 break
             self._wait(stop_event, allow_global_stop)
         else:
+            if require_observed_motion and not observed_moving:
+                raise TimeoutError(
+                    f"上半身在 {timeout:g} 秒内未进入运动状态"
+                )
             raise TimeoutError(f"上半身在 {timeout:g} 秒内未停止")
         if self.MOTION_STABILIZATION_DELAY:
             if allow_global_stop and stop_event.is_set():
@@ -112,7 +123,9 @@ class UpperBodyDevice:
     ) -> None:
         if stop_event.is_set() and not force:
             raise AgingError("停止状态下不执行回零")
-        self.call(self.robot.upper_go_zero, _async=True)
+        result = self.call(self.robot.upper_go_zero, _async=True)
+        if result not in (0, 1):
+            raise AgingError(f"upper_go_zero 开环下发失败: {result!r}")
         self.wait_until_stopped(
             stop_event, timeout, allow_global_stop=force
         )

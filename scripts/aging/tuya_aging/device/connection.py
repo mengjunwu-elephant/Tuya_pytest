@@ -26,7 +26,7 @@ class TuyaConnection:
             head_auto_connect=connect_head,
             chassis_auto_connect=connect_chassis,
             apply_limits_on_init=config.apply_limits_on_init,
-            debug=config.debug,
+            debug=False,
             plain_return=config.plain_return,
         )
         self.closed = False

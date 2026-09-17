@@ -37,41 +37,43 @@ class UpperMonitor:
                 self.stop_event.wait(self.options.monitor_interval)
                 continue
             try:
-                readings: dict[str, Any] = {
-                    "angles": self.device.call(
-                        self.device.upper_body.get_upper_angles
-                    ),
-                    "coords": self.device.call(
-                        self.device.upper_body.get_upper_coords
-                    ),
-                    "current": self.device.call(
-                        self.device.upper_body.get_upper_joints_current
-                    ),
-                    "speed": self.device.call(
-                        self.device.upper_body.get_upper_joints_run_sp
-                    ),
-                    "encoders": self.device.call(
-                        self.device.upper_body.get_upper_encoders
-                    ),
-                    "loss": {
-                        joint_id: self.device.call(
-                            self.device.upper_body.get_upper_joint_loss_count,
-                            joint_id,
-                        )
-                    },
-                    "joints_status": self.device.call(
-                        self.device.upper_body.get_upper_joints_status
-                    ),
-                    "robot_status": self.device.call(
-                        self.device.upper_body.get_upper_robot_status
-                    ),
-                    "moving": self.device.call(
-                        self.device.upper_body.get_upper_is_moving
-                    ),
-                    "paused": self.device.call(
-                        self.device.upper_body.get_upper_is_paused
-                    ),
-                }
+                # 整轮采样独占总线，避免与运动线程逐条交错触发 SDK 超时
+                with self.device.upper_session():
+                    readings: dict[str, Any] = {
+                        "angles": self.device.call(
+                            self.device.upper_body.get_upper_angles
+                        ),
+                        "coords": self.device.call(
+                            self.device.upper_body.get_upper_coords
+                        ),
+                        "current": self.device.call(
+                            self.device.upper_body.get_upper_joints_current
+                        ),
+                        "speed": self.device.call(
+                            self.device.upper_body.get_upper_joints_run_sp
+                        ),
+                        "encoders": self.device.call(
+                            self.device.upper_body.get_upper_encoders
+                        ),
+                        "loss": {
+                            joint_id: self.device.call(
+                                self.device.upper_body.get_upper_joint_loss_count,
+                                joint_id,
+                            )
+                        },
+                        "joints_status": self.device.call(
+                            self.device.upper_body.get_upper_joints_status
+                        ),
+                        "robot_status": self.device.call(
+                            self.device.upper_body.get_upper_robot_status
+                        ),
+                        "moving": self.device.call(
+                            self.device.upper_body.get_upper_is_moving
+                        ),
+                        "paused": self.device.call(
+                            self.device.upper_body.get_upper_is_paused
+                        ),
+                    }
                 logger.info(
                     "上半身遥测读取 | joint_id=J%s | readings=%r",
                     joint_id,

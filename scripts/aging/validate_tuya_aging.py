@@ -10,6 +10,7 @@ import threading
 import time
 import unittest
 from collections import defaultdict
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -168,6 +169,12 @@ class FakeUpperBody:
     def get_upper_fresh_mode(self) -> list[int]:
         return [0, 0]
 
+    def set_upper_motion_async(self, enabled: bool) -> bool:
+        return bool(enabled)
+
+    def get_upper_is_moving(self) -> list[int]:
+        return [0, 0]
+
     def get_upper_angles(self) -> dict[str, Any]:
         return dict(self.owner.angles)
 
@@ -294,6 +301,11 @@ class FakeUpperDevice:
     @staticmethod
     def call(func: Any, *args: Any, **kwargs: Any) -> Any:
         return func(*args, **kwargs)
+
+    @staticmethod
+    @contextmanager
+    def upper_session() -> Any:
+        yield
 
     def go_zero(self, *_args: Any, **_kwargs: Any) -> None:
         self.events.append(("zero",))
@@ -632,39 +644,46 @@ class ArchitectureTests(unittest.TestCase):
         self.assertEqual(
             constants.JOINT_SOFT_LIMITS,
             {
-                1: (-150.0, 176.0),
+                1: (-160.0, 160.0),
                 2: (-65.0, 110.0),
-                3: (-165.0, 165.0),
+                3: (-160.0, 160.0),
                 4: (-164.0, -10.0),
-                5: (-165.0, 165.0),
-                6: (-75.0, 45.0),
-                7: (-80.0, 75.0),
+                5: (-160.0, 160.0),
+                6: (-40.0, 85.0),
+                7: (-75.0, 75.0),
+                8: (0.0, 125.0),
             },
         )
         self.assertEqual(
             constants.ZERO_ANGLES,
             {
-                "left": (0.0, 12.0, -90.0, -10.0, 90.0, 0.0, 0.0, 0.0),
-                "right": (0.0, 12.0, 90.0, -10.0, -90.0, 0.0, 0.0, 0.0),
+                "left": (0.0, 0.0, 0.0, -10.0, 0.0, 0.0, 0.0, 0.0),
+                "right": (0.0, 0.0, 0.0, -10.0, 0.0, 0.0, 0.0, 0.0),
             },
         )
         self.assertEqual(
-            constants.COORD_SOFT_LIMITS[2], (-841.0, 841.0)
+            constants.COORD_SOFT_LIMITS["left"][2], (-305.0, 850.0)
         )
         self.assertEqual(
-            constants.COORD_SOFT_LIMITS[3], (-636.0, 685.0)
+            constants.COORD_SOFT_LIMITS["right"][2], (-850.0, 305.0)
+        )
+        self.assertEqual(
+            constants.COORD_SOFT_LIMITS["left"][3], (-671.0, 680.0)
+        )
+        self.assertEqual(
+            constants.COORD_SOFT_LIMITS["right"][3], (-671.0, 680.0)
         )
         self.assertEqual(
             constants.HEAD_JOINT_SOFT_LIMITS,
             {
-                1: (-60.0, 60.0),
-                2: (-15.0, 15.0),
-                3: (-40.0, 40.0),
-                4: (-40.0, 40.0),
+                1: (-100.0, 100.0),
+                2: (-10.0, 10.0),
+                3: (-30.0, 30.0),
+                4: (-30.0, 30.0),
             },
         )
         self.assertEqual(constants.HEAD_ZERO_ANGLES, (0.0, 0.0, 0.0, 0.0))
-        self.assertEqual(constants.HEAD_ANGLE_TOLERANCE, 1.0)
+        self.assertEqual(constants.HEAD_ANGLE_TOLERANCE, 2.0)
 
     def test_angle_groups_have_no_zero_between_three_groups(self) -> None:
         runner, device = upper_runner_with_fake()
@@ -710,7 +729,7 @@ class ArchitectureTests(unittest.TestCase):
     ) -> None:
         runner, device = upper_runner_with_fake()
         runner.run_joint_limits()
-        self.assertEqual(device.events.count(("zero",)), 15)
+        self.assertEqual(device.events.count(("zero",)), 17)
         for side in ("left", "right"):
             for joint_id, limits in constants.JOINT_SOFT_LIMITS.items():
                 negative = ("limit", side, joint_id, limits[0])
@@ -730,7 +749,7 @@ class ArchitectureTests(unittest.TestCase):
     def test_joint_jog_zero_only_after_direction_pair(self) -> None:
         runner, device = upper_runner_with_fake()
         runner.run_jog_angles()
-        self.assertEqual(device.events.count(("zero",)), 22)
+        self.assertEqual(device.events.count(("zero",)), 25)
         for target in ("left", "right", "both"):
             for joint_id in constants.JOINT_SOFT_LIMITS:
                 if target == "both" and joint_id == 2:

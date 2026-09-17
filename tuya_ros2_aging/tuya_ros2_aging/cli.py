@@ -10,14 +10,13 @@ from pathlib import Path
 from typing import Sequence
 
 from . import constants
-from .config import AgingConnectionConfig, AgingOptions
-from .report import ReportCollector, attach_run_log
-from .report.log_setup import logger
-from .runtime.coordinator import AgingCoordinator
+from .config import AgingOptions
+from .report.collector import ReportCollector
+from .report.log_setup import attach_run_log, logger
 
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_HEAD_ANIMATION_DIR = Path(__file__).resolve().parent / "pag_file"
+PACKAGE_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_REPORT_DIR = PACKAGE_ROOT / "reports"
+DEFAULT_HEAD_ANIMATION_DIR = PACKAGE_ROOT / "pag_file"
 
 
 def positive_int(value: str) -> int:
@@ -42,38 +41,22 @@ def positive_float(value: str) -> float:
 
 
 def discover_pag_files(directory: Path) -> tuple[Path, ...]:
-    """扫描目录下全部 .pag；目录不存在或为空则返回空元组。"""
     if not directory.is_dir():
         return ()
     return tuple(sorted(path.resolve() for path in directory.glob("*.pag")))
 
 
 def build_parser() -> argparse.ArgumentParser:
-    defaults = AgingConnectionConfig.from_env()
     parser = argparse.ArgumentParser(
         description=(
-            "TuyaRobot 上半身、头部与底盘独立并行老化。"
-            "软件限位和 Jog 属于危险实机运动，必须现场人工监护。"
+            "TuyaRobot ROS2 上半身、头部与底盘独立并行老化。"
+            "仅刷新模式；不含 Jog。软件限位与底盘运动必须现场人工监护。"
         )
-    )
-    parser.add_argument("--upper-ip", default=defaults.upper_ip)
-    parser.add_argument(
-        "--upper-port", type=positive_int, default=defaults.upper_port
-    )
-    parser.add_argument("--head-ip", default=defaults.head_ip)
-    parser.add_argument(
-        "--head-port", type=positive_int, default=defaults.head_port
-    )
-    parser.add_argument("--chassis-port", default=defaults.chassis_port)
-    parser.add_argument(
-        "--chassis-baud",
-        type=positive_int,
-        default=defaults.chassis_baud,
     )
     parser.add_argument(
         "--run-upper-motion",
         action="store_true",
-        help="启用上半身真实运动、软件限位和 Jog 老化",
+        help="启用上半身真实运动与软件限位老化",
     )
     parser.add_argument(
         "--run-head-motion",
@@ -83,7 +66,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--run-chassis-motion",
         action="store_true",
-        help="启用底盘真实往返及旋转运动",
+        help="启用底盘真实往返、旋转、指示灯与升降柱老化",
     )
     parser.add_argument(
         "--monitor-only",
@@ -103,18 +86,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="每个运动子系统最大循环数，0 表示不限次数",
     )
     parser.add_argument("--upper-speed", type=positive_int, default=20)
-    parser.add_argument("--jog-speed", type=positive_int, default=10)
     parser.add_argument(
         "--head-speed",
         type=positive_int,
         default=constants.HEAD_SPEED,
-        help="头部运动速度（SDK 1~100）",
+        help="头部运动速度（1~100）",
     )
     parser.add_argument(
         "--upper-timeout", type=positive_float, default=60.0
-    )
-    parser.add_argument(
-        "--jog-timeout", type=positive_float, default=300.0
     )
     parser.add_argument(
         "--head-timeout", type=positive_float, default=60.0
@@ -135,13 +114,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--chassis-segment-seconds", type=positive_float, default=2.0
     )
     parser.add_argument(
-        "--angle-tolerance", type=positive_float, default=0.1
+        "--angle-tolerance", type=positive_float, default=1.0
     )
     parser.add_argument(
         "--coord-tolerance", type=positive_float, default=1.0
-    )
-    parser.add_argument(
-        "--consecutive-failure-limit", type=positive_int, default=3
     )
     parser.add_argument(
         "--consecutive-motion-failure-limit",
@@ -150,27 +126,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="连续运动指令无响应或运动未成功的停止阈值",
     )
     parser.add_argument(
-        "--auto-report-max-age", type=positive_float, default=1.0
+        "--service-timeout",
+        type=positive_float,
+        default=10.0,
+        help="单次 ROS Service 调用超时秒",
     )
     parser.add_argument(
         "--report-dir",
         type=Path,
-        default=REPO_ROOT / "test_report" / "aging",
+        default=DEFAULT_REPORT_DIR,
     )
     parser.add_argument(
         "--validate-config",
         action="store_true",
-        help="只校验参数和内置角度/坐标/头部限位，不连接设备",
-    )
-    parser.add_argument(
-        "--debug",
-        action=argparse.BooleanOptionalAction,
-        default=defaults.debug,
-    )
-    parser.add_argument(
-        "--plain-return",
-        action=argparse.BooleanOptionalAction,
-        default=defaults.plain_return,
+        help="只校验参数和内置角度/坐标/头部限位，不连接 ROS",
     )
     return parser
 
@@ -186,8 +155,6 @@ def validate_args(
         parser.error("--monitor-only 不能与运动开关同时使用")
     if not 1 <= args.upper_speed <= 100:
         parser.error("--upper-speed 必须在 1~100")
-    if not 1 <= args.jog_speed <= 100:
-        parser.error("--jog-speed 必须在 1~100")
     if not 1 <= args.head_speed <= 100:
         parser.error("--head-speed 必须在 1~100")
     if args.duration_hours < 0:
@@ -202,11 +169,6 @@ def validate_args(
         parser.error("头部零位长度错误")
     if sorted(constants.HEAD_JOINT_SOFT_LIMITS) != [1, 2, 3, 4]:
         parser.error("头部软限位关节号错误")
-    if sorted(constants.COORD_SOFT_LIMITS) != ["left", "right"]:
-        parser.error("双臂坐标软限位必须按左右臂分开存储")
-    for side in ("left", "right"):
-        if sorted(constants.COORD_SOFT_LIMITS[side]) != [1, 2, 3, 4, 5, 6]:
-            parser.error(f"{side} 臂坐标软限位轴号错误")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -214,32 +176,21 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     validate_args(args, parser)
     animation_paths = discover_pag_files(DEFAULT_HEAD_ANIMATION_DIR)
-    connection = AgingConnectionConfig(
-        upper_ip=args.upper_ip,
-        upper_port=args.upper_port,
-        head_ip=args.head_ip,
-        head_port=args.head_port,
-        chassis_port=args.chassis_port,
-        chassis_baud=args.chassis_baud,
-        debug=False,
-        plain_return=args.plain_return,
-        apply_limits_on_init=False,
-    )
     if args.validate_config:
         print(
             json.dumps(
                 {
-                    "connection": asdict(connection),
+                    "fresh_mode": constants.FRESH_MODE,
                     "angle_groups": constants.ANGLE_GROUPS,
                     "coord_groups": constants.COORD_GROUPS,
                     "joint_soft_limits": constants.JOINT_SOFT_LIMITS,
-                    "coord_soft_limits": constants.COORD_SOFT_LIMITS,
                     "head_joint_soft_limits": constants.HEAD_JOINT_SOFT_LIMITS,
                     "head_zero_angles": constants.HEAD_ZERO_ANGLES,
                     "head_animation_dir": str(DEFAULT_HEAD_ANIMATION_DIR),
                     "head_animation_paths": [
                         str(path) for path in animation_paths
                     ],
+                    "report_dir": str(args.report_dir),
                 },
                 ensure_ascii=False,
                 indent=2,
@@ -264,10 +215,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         duration_hours=args.duration_hours,
         cycle_limit=args.cycle_limit,
         upper_speed=args.upper_speed,
-        jog_speed=args.jog_speed,
         head_speed=args.head_speed,
         upper_timeout=args.upper_timeout,
-        jog_timeout=args.jog_timeout,
         head_timeout=args.head_timeout,
         monitor_interval=args.monitor_interval,
         autosave_interval=args.autosave_interval,
@@ -277,11 +226,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         report_dir=args.report_dir,
         angle_tolerance=args.angle_tolerance,
         coord_tolerance=args.coord_tolerance,
-        consecutive_failure_limit=args.consecutive_failure_limit,
         consecutive_motion_failure_limit=(
             args.consecutive_motion_failure_limit
         ),
-        auto_report_max_age=args.auto_report_max_age,
+        service_timeout=args.service_timeout,
         head_animation_paths=animation_paths,
     )
     run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -289,24 +237,24 @@ def main(argv: Sequence[str] | None = None) -> int:
     report = ReportCollector(
         report_root,
         {
-            **asdict(connection),
-            **{
-                key: (
-                    [str(item) for item in value]
-                    if key == "head_animation_paths"
-                    else (str(value) if isinstance(value, Path) else value)
-                )
-                for key, value in asdict(options).items()
-            },
+            key: (
+                [str(item) for item in value]
+                if key == "head_animation_paths"
+                else (str(value) if isinstance(value, Path) else value)
+            )
+            for key, value in asdict(options).items()
         },
     )
     attach_run_log(report_root)
-    logger.info("TuyaRobot 老化启动，报告目录：%s", report_root)
+    logger.info("Tuya ROS2 老化启动，报告目录：%s", report_root)
     logger.warning(
-        "上半身软件限位、头部软限位、Jog 和底盘运动必须由现场人员持续监护"
+        "上半身软件限位、头部软限位和底盘运动必须由现场人员持续监护；"
+        "本脚本固定刷新模式且不含 Jog"
     )
     try:
-        coordinator = AgingCoordinator(connection, options, report)
+        from .runtime.coordinator import AgingCoordinator
+
+        coordinator = AgingCoordinator(options, report)
         return coordinator.run()
     except Exception as exc:
         logger.exception("老化脚本启动或运行失败")

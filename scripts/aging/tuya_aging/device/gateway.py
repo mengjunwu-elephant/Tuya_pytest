@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import threading
 import time
-from typing import Any, Callable
+from contextlib import contextmanager
+from typing import Any, Callable, Iterator
 
 from pytuyarobot.command_result import CommandResult
 
@@ -191,6 +192,12 @@ class TuyaGateway:
         return self._call(
             "upper", self.upper_lock, func, args, kwargs
         )
+
+    @contextmanager
+    def upper_session(self) -> Iterator[None]:
+        """把多条上半身指令合并为不可被其他线程打断的总线会话。"""
+        with self.upper_lock:
+            yield
 
     def chassis(
         self, func: Callable[..., Any], *args: Any, **kwargs: Any

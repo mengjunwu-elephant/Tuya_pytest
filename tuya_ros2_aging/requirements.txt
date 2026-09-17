@@ -1,0 +1,3 @@
+openpyxl>=3.1.0
+# 运行于机器人本机时还需已安装：
+#   ROS2 Humble、rclpy、tuyarobot_msgs、geometry_msgs

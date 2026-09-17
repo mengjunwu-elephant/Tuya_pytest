@@ -1,10 +1,10 @@
 {
-  "python.defaultInterpreterPath": "D:\\python\\python.exe",
+  "python.defaultInterpreterPath": "D:\\python3.10\\python.exe",
   "editor.codeLens": true,
   "python.analysis.extraPaths": ["${workspaceFolder}"],
   "terminal.integrated.env.windows": {
     "PYTHONPATH": "${workspaceFolder}",
-    "PATH": "D:\\python;D:\\python\\Scripts;${env:PATH}"
+    "PATH": "D:\\python3.10;D:\\python3.10\\Scripts;${env:PATH}"
   },
   "python.terminal.executeInFileDir": false,
   "python.testing.cwd": "${workspaceFolder}",

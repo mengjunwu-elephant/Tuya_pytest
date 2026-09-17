@@ -196,85 +196,266 @@ class UpperMotionRunner:
                 raise AgingError("上半身上电确认收到停止信号")
         raise TimeoutError(f"上半身 30 秒内未全部上电: {states!r}")
 
-    def run_joint_limits(self) -> None:
-        self.device.go_zero(
-            self.stop_event, self.options.upper_timeout
+    @staticmethod
+    def _require_open_loop_ack(api: str, result: Any) -> None:
+        if result not in (0, 1):
+            raise AgingError(f"{api} 开环下发失败: {result!r}")
+
+    def _enable_open_loop(self) -> None:
+        enabled = self.device.call(
+            self.device.upper_body.set_upper_motion_async, True
         )
-        for side, arm in (
-            ("left", self.device.left_arm),
-            ("right", self.device.right_arm),
-        ):
-            for joint_id, limits in constants.JOINT_SOFT_LIMITS.items():
-                if self.stop_event.is_set():
-                    return
-                self.device.call(arm.set_upper_fresh_mode, 0)
-                for boundary, target_value in (
-                    ("下限", limits[0]),
-                    ("上限", limits[1]),
-                ):
-                    params = {
-                        "joint_id": joint_id,
-                        "boundary": boundary,
-                        "speed": self.options.upper_speed,
-                    }
+        if enabled is not True:
+            raise AgingError(f"启用开环失败: {enabled!r}")
 
-                    def operation(
-                        arm: Any = arm,
-                        joint_id: int = joint_id,
-                        target_value: float = target_value,
-                        limits: tuple[float, float] = limits,
-                    ) -> tuple[Any, float, bool, bool]:
-                        self.device.call(
-                            arm.send_upper_angle,
-                            joint_id,
-                            target_value,
-                            self.options.upper_speed,
-                            _async=True,
-                        )
-                        self.device.wait_until_stopped(
-                            self.stop_event, self.options.jog_timeout
-                        )
-                        angles = self.device.call(arm.get_upper_angles)
-                        if not isinstance(angles, (list, tuple)) or len(angles) != 8:
-                            raise AgingError(
-                                f"{side}臂角度回读格式错误: {angles!r}"
-                            )
-                        value = float(angles[joint_id - 1])
-                        error = abs(value - target_value)
-                        exceeded = (
-                            value < limits[0] - self.options.angle_tolerance
-                            or value
-                            > limits[1] + self.options.angle_tolerance
-                        )
-                        return (
-                            value,
-                            error,
-                            error <= self.options.angle_tolerance and not exceeded,
-                            exceeded,
-                        )
+    def _restore_closed_loop(self) -> None:
+        restored = self.device.call(
+            self.device.upper_body.set_upper_motion_async, False
+        )
+        if restored is not False:
+            raise AgingError(f"恢复插补同步失败: {restored!r}")
 
-                    self._attempt(
-                        "send_upper_angle", side, params,
-                        target_value, operation,
-                    )
-                logger.info(
-                    "send_upper_angle 正负软件限位完成，统一回零"
-                    " | target=%s | joint_id=%s",
+    def _go_zero_continue(self, *, context: str = "") -> bool:
+        """执行回零；失败只写报告、不计入连续失败策略，返回是否成功。"""
+        started = time.monotonic()
+        try:
+            self.device.go_zero(
+                self.stop_event, self.options.upper_timeout
+            )
+            return True
+        except (ConsecutiveMotionFailureError, SafetyViolationError):
+            raise
+        except Exception as exc:
+            if self.stop_event.is_set():
+                raise
+            action = self._next_action()
+            failure = str(exc)
+            logger.warning(
+                "上半身回零失败，记录后继续 | context=%s | error=%s",
+                context or "-",
+                failure,
+            )
+            self.report.append(
+                "上半身运动",
+                (
+                    utc_text(),
+                    self.cycle,
+                    action,
+                    "upper_go_zero",
+                    "both",
+                    {"context": context} if context else {},
+                    "零位",
+                    "",
+                    None,
+                    round(time.monotonic() - started, 3),
+                    False,
+                    False,
+                    "失败",
+                    failure,
+                ),
+            )
+            self.report.count("upper_go_zero", "调用")
+            self.report.count("upper_go_zero", "失败")
+            self.report.event(
+                "WARNING",
+                "上半身",
+                context or "回零",
+                f"回零失败后继续: {failure}",
+                exc,
+            )
+            return False
+
+    def _prep_j1_before_j2_upper(self, side: str, arm: Any) -> bool:
+        """J2 上限前将 J1 预摆到 30°；失败记「预摆失败/已跳过」并返回 False。"""
+        expected = constants.J2_UPPER_PREP_J1_ANGLE
+        params = {
+            "joint_id": 1,
+            "purpose": "J2上限预摆",
+            "speed": self.options.upper_speed,
+            "open_loop": True,
+        }
+        action = self._next_action()
+        started = time.monotonic()
+        try:
+            with self.device.upper_session():
+                result = self.device.call(
+                    arm.send_upper_angle,
+                    1,
+                    expected,
+                    self.options.upper_speed,
+                    _async=True,
+                )
+                self._require_open_loop_ack("send_upper_angle", result)
+                self.device.wait_until_stopped(
+                    self.stop_event,
+                    self.options.jog_timeout,
+                    require_observed_motion=True,
+                )
+                angles = self.device.call(arm.get_upper_angles)
+            if (
+                not isinstance(angles, (list, tuple))
+                or len(angles) != 8
+            ):
+                raise AgingError(
+                    f"{side}臂角度回读格式错误: {angles!r}"
+                )
+            actual = float(angles[0])
+            error = abs(actual - expected)
+            if error <= self.options.angle_tolerance:
+                self._record(
+                    action,
+                    "send_upper_angle",
                     side,
-                    joint_id,
+                    params,
+                    expected,
+                    actual,
+                    error,
+                    time.monotonic() - started,
+                    True,
+                    False,
                 )
-                self.device.go_zero(
-                    self.stop_event, self.options.upper_timeout
-                )
+                return True
+            self._record(
+                action,
+                "send_upper_angle",
+                side,
+                params,
+                expected,
+                actual,
+                error,
+                time.monotonic() - started,
+                False,
+                False,
+                "预摆失败/已跳过",
+                skip=True,
+            )
+            return False
+        except (ConsecutiveMotionFailureError, SafetyViolationError):
+            raise
+        except Exception as exc:
+            logger.warning(
+                "J2上限预摆异常，跳过该臂J2上限 | target=%s | error=%s",
+                side,
+                exc,
+            )
+            self._record(
+                action,
+                "send_upper_angle",
+                side,
+                params,
+                expected,
+                "",
+                None,
+                time.monotonic() - started,
+                False,
+                False,
+                "预摆失败/已跳过",
+                skip=True,
+            )
+            return False
+
+    def run_joint_limits(self) -> None:
+        self._enable_open_loop()
+        try:
+            with self.device.upper_session():
+                self._go_zero_continue()
+            for side, arm in (
+                ("left", self.device.left_arm),
+                ("right", self.device.right_arm),
+            ):
+                for joint_id, limits in constants.JOINT_SOFT_LIMITS.items():
+                    if self.stop_event.is_set():
+                        return
+                    self.device.call(arm.set_upper_fresh_mode, 0)
+                    for boundary, target_value in (
+                        ("下限", limits[0]),
+                        ("上限", limits[1]),
+                    ):
+                        if (
+                            joint_id == 2
+                            and boundary == "上限"
+                            and not self._prep_j1_before_j2_upper(
+                                side, arm
+                            )
+                        ):
+                            continue
+                        params = {
+                            "joint_id": joint_id,
+                            "boundary": boundary,
+                            "speed": self.options.upper_speed,
+                            "open_loop": True,
+                        }
+
+                        def operation(
+                            arm: Any = arm,
+                            joint_id: int = joint_id,
+                            target_value: float = target_value,
+                            limits: tuple[float, float] = limits,
+                        ) -> tuple[Any, float, bool, bool]:
+                            # 下发、等待停止和角度回读独占总线
+                            with self.device.upper_session():
+                                result = self.device.call(
+                                    arm.send_upper_angle,
+                                    joint_id,
+                                    target_value,
+                                    self.options.upper_speed,
+                                    _async=True,
+                                )
+                                self._require_open_loop_ack(
+                                    "send_upper_angle", result
+                                )
+                                self.device.wait_until_stopped(
+                                    self.stop_event,
+                                    self.options.jog_timeout,
+                                    require_observed_motion=True,
+                                )
+                                angles = self.device.call(
+                                    arm.get_upper_angles
+                                )
+                            if (
+                                not isinstance(angles, (list, tuple))
+                                or len(angles) != 8
+                            ):
+                                raise AgingError(
+                                    f"{side}臂角度回读格式错误: {angles!r}"
+                                )
+                            value = float(angles[joint_id - 1])
+                            error = abs(value - target_value)
+                            exceeded = (
+                                value
+                                < limits[0] - self.options.angle_tolerance
+                                or value
+                                > limits[1] + self.options.angle_tolerance
+                            )
+                            return (
+                                value,
+                                error,
+                                error <= self.options.angle_tolerance
+                                and not exceeded,
+                                exceeded,
+                            )
+
+                        self._attempt(
+                            "send_upper_angle", side, params,
+                            target_value, operation,
+                        )
+                    logger.info(
+                        "send_upper_angle 正负软件限位完成，统一回零"
+                        " | target=%s | joint_id=%s",
+                        side,
+                        joint_id,
+                    )
+                    with self.device.upper_session():
+                        self._go_zero_continue()
+        finally:
+            self._restore_closed_loop()
 
     def run_angle_groups(self) -> None:
         for mode in constants.ACTIVE_FRESH_MODES:
             for target in ("left", "right", "both"):
                 if self.stop_event.is_set():
                     return
-                self.device.go_zero(
-                    self.stop_event, self.options.upper_timeout
-                )
+                self._go_zero_continue()
                 self.set_fresh_mode(target, mode)
                 for group in constants.ANGLE_GROUPS:
                     expected = {
@@ -337,9 +518,7 @@ class UpperMotionRunner:
                     "send_upper_angles 三组完成，统一回零 | target=%s",
                     target,
                 )
-                self.device.go_zero(
-                    self.stop_event, self.options.upper_timeout
-                )
+                self._go_zero_continue()
 
     def run_coord_groups(self) -> None:
         for mode in constants.ACTIVE_FRESH_MODES:
@@ -408,9 +587,7 @@ class UpperMotionRunner:
                     "send_upper_coords 三组完成，统一回零 | target=%s",
                     target,
                 )
-                self.device.go_zero(
-                    self.stop_event, self.options.upper_timeout
-                )
+                self._go_zero_continue()
 
         self.set_fresh_mode("both", 0)
         for group in constants.COORD_GROUPS:
@@ -450,9 +627,7 @@ class UpperMotionRunner:
                 expected,
                 alias_operation,
             )
-            self.device.go_zero(
-                self.stop_event, self.options.upper_timeout
-            )
+            self._go_zero_continue()
 
     def run_single_coords(self) -> None:
         for mode in constants.ACTIVE_FRESH_MODES:
@@ -516,9 +691,7 @@ class UpperMotionRunner:
         if self.stop_event.is_set():
             return
         logger.info("send_upper_coord 全部单轴动作完成，统一回零")
-        self.device.go_zero(
-            self.stop_event, self.options.upper_timeout
-        )
+        self._go_zero_continue()
         action = self._next_action()
         reason = "write_upper_coord 双臂共同绝对坐标尚未确认"
         self._record(
@@ -534,9 +707,7 @@ class UpperMotionRunner:
             ("both", self.device.upper_body),
         )
         self.set_fresh_mode("both", 0)
-        self.device.go_zero(
-            self.stop_event, self.options.upper_timeout
-        )
+        self._go_zero_continue()
         for target, api_owner in targets:
             for joint_id, limits in constants.JOINT_SOFT_LIMITS.items():
                 for direction in (0, 1):
@@ -624,9 +795,7 @@ class UpperMotionRunner:
                     target,
                     joint_id,
                 )
-                self.device.go_zero(
-                    self.stop_event, self.options.upper_timeout
-                )
+                self._go_zero_continue()
 
     def run_jog_increments(self) -> None:
         targets = (
@@ -635,9 +804,7 @@ class UpperMotionRunner:
             ("both", self.device.upper_body),
         )
         self.set_fresh_mode("both", 0)
-        self.device.go_zero(
-            self.stop_event, self.options.upper_timeout
-        )
+        self._go_zero_continue()
         for target, api_owner in targets:
             for joint_id in range(1, 8):
                 if self.stop_event.is_set():
@@ -704,9 +871,7 @@ class UpperMotionRunner:
                     target,
                     joint_id,
                 )
-                self.device.go_zero(
-                    self.stop_event, self.options.upper_timeout
-                )
+                self._go_zero_continue()
 
     def run_jog_coords(self) -> None:
         targets: tuple[tuple[str, Any, Iterable[int]], ...] = (
@@ -810,9 +975,7 @@ class UpperMotionRunner:
                         {"status_code": 32},
                         operation,
                     )
-                    self.device.go_zero(
-                        self.stop_event, self.options.upper_timeout
-                    )
+                    self._go_zero_continue()
 
     def run_coord_increments(self) -> None:
         targets: tuple[tuple[str, Any, Iterable[int]], ...] = (
@@ -882,15 +1045,11 @@ class UpperMotionRunner:
         if self.stop_event.is_set():
             return
         logger.info("upper_jog_coord_increment 全部动作完成，统一回零")
-        self.device.go_zero(
-            self.stop_event, self.options.upper_timeout
-        )
+        self._go_zero_continue()
 
     def run_motion_controls(self) -> None:
         self.set_fresh_mode("both", 0)
-        self.device.go_zero(
-            self.stop_event, self.options.upper_timeout
-        )
+        self._go_zero_continue()
 
         def operation() -> tuple[Any, None, bool, bool]:
             self.device.call(
@@ -923,9 +1082,7 @@ class UpperMotionRunner:
             "暂停、恢复、停止成功",
             operation,
         )
-        self.device.go_zero(
-            self.stop_event, self.options.upper_timeout
-        )
+        self._go_zero_continue()
 
     def run(self) -> None:
         logger.info("上半身运动线程启动")
@@ -948,15 +1105,15 @@ class UpperMotionRunner:
                     )
                     self.stop_event.wait(self.options.monitor_interval)
             phases = (
-                # ("单关节软件限位", self.run_joint_limits),
-                ("三组关节角度", self.run_angle_groups),
-                ("三组坐标", self.run_coord_groups),
-                ("单轴坐标", self.run_single_coords),
+                ("单关节软件限位", self.run_joint_limits),
+                # ("三组关节角度", self.run_angle_groups),
+                # ("三组坐标", self.run_coord_groups),
+                # ("单轴坐标", self.run_single_coords),
                 # ("关节Jog", self.run_jog_angles),
-                ("关节增量", self.run_jog_increments),
+                # ("关节增量", self.run_jog_increments),
                 # ("坐标Jog", self.run_jog_coords),
-                ("坐标增量", self.run_coord_increments),
-                ("暂停恢复停止", self.run_motion_controls),
+                # ("坐标增量", self.run_coord_increments),
+                # ("暂停恢复停止", self.run_motion_controls),
             )
             while not self.stop_event.is_set():
                 if (

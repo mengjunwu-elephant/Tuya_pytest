@@ -1,31 +1,18 @@
-"""本次老化运行日志配置。"""
+"""本次老化运行日志配置（不依赖仓库 common1）。"""
 
 from __future__ import annotations
 
 import logging
 from pathlib import Path
 
-
-def silence_sdk_logs() -> None:
-    sdk_logger = logging.getLogger("pytuyarobot")
-    sdk_logger.setLevel(logging.WARNING)
-    sdk_logger.propagate = False
-
-
-try:
-    from common1 import logger
-except Exception:  # pragma: no cover
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(levelname)s %(asctime)s [%(filename)s:%(lineno)d] %(message)s",
-    )
-    logger = logging.getLogger("tuya_robot_aging")
-
-silence_sdk_logs()
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s %(asctime)s [%(filename)s:%(lineno)d] %(message)s",
+)
+logger = logging.getLogger("tuya_ros2_aging")
 
 
 def attach_run_log(report_root: Path) -> None:
-    silence_sdk_logs()
     log_path = report_root / "aging.log"
     resolved = str(log_path.resolve())
     for handler in logger.handlers:
